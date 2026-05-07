@@ -1,0 +1,50 @@
+[
+    [
+        "内容", "ないよう", "n", "n", 35,
+        [
+            "naiyou definition 1",
+            {"type": "structured-content", "content": [
+                {"tag": "ul", "content": [
+                    {"tag": "li", "content": "Unordered list item 1"},
+                    {"tag": "li", "content": "Unordered list item 2"},
+                    {"tag": "li", "content": "Unordered list item 3"}
+                ]}
+            ]},
+            {"type": "structured-content", "content": [
+                {"tag": "table", "lang": "", "content": [
+                    {"tag": "thead", "content": [
+                        {"tag": "tr", "content": [
+                            {"tag": "th", "content": "JP"},
+                            {"tag": "th", "content": "SC"},
+                            {"tag": "th", "content": "TC"},
+                            {"tag": "th", "content": "??"}
+                        ]}
+                    ]},
+                    {"tag": "tbody", "content": [
+                        {"tag": "tr", "content": [
+                            {"tag": "td", "lang": "ja-JP", "content": "直次茶冷"},
+                            {"tag": "td", "lang": "zh-CN", "content": "直次茶冷"},
+                            {"tag": "td", "lang": "zh-TW", "content": "直次茶冷"},
+                            {"tag": "td", "content": "直次茶冷"}
+                        ]}
+                    ]}
+                ]}
+            ]},
+            {"type": "structured-content", "content": [
+                {"tag": "table", "lang": "zh-CN", "content": [
+                    {"tag": "thead", "content": [
+                        {"tag": "tr", "content": [
+                            {"tag": "th", "content": "lang=zh-CN applied to whole table"}
+                        ]}
+                    ]},
+                    {"tag": "tbody", "content": [
+                        {"tag": "tr", "content": [
+                            {"tag": "td", "content": "直次茶冷"}
+                        ]}
+                    ]}
+                ]}
+            ]}
+        ],
+        100, "P E1"
+    ]
+]

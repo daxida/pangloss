@@ -1,0 +1,29 @@
+[
+    [
+        "内容", "ないよう", "n", "n", 35,
+        [
+            "naiyou definition 1",
+            {"type": "structured-content", "content": "naiyou definition 2"},
+            {"type": "structured-content", "content": ["naiyou definition 3"]},
+            {"type": "structured-content", "content": {"tag": "img", "path": "image.gif", "width": 35, "height": 35, "pixelated": true}},
+            {"type": "structured-content", "content": [
+                "naiyou definition 5: ",
+                {"tag": "img", "path": "image.gif", "width": 35, "height": 35, "pixelated": true, "collapsible": false},
+                "\nmore content 1: ",
+                {"tag": "img", "path": "image.gif", "width": 35, "height": 35, "pixelated": true, "collapsible": true},
+                "\nmore content 2: ",
+                {"tag": "img", "path": "image.gif", "width": 35, "height": 35, "pixelated": true, "collapsible": false, "collapsed": false, "verticalAlign": "middle"},
+                " and ",
+                {"tag": "img", "path": "image.gif", "width": 35, "height": 35, "pixelated": true, "collapsible": false, "collapsed": true},
+                " and ",
+                {"tag": "img", "path": "image.gif", "width": 1, "height": 1, "pixelated": true, "collapsible": false, "collapsed": false, "sizeUnits": "em"}
+            ]},
+            {"type": "structured-content", "content": [
+                "naiyou definition 6: ",
+                {"tag": "ruby", "content": ["内", {"tag": "rp", "content": "("}, {"tag": "rt", "content": "ない"}, {"tag": "rp", "content": ")"}]},
+                {"tag": "ruby", "content": ["容", {"tag": "rp", "content": "("}, {"tag": "rt", "content": "よう"}, {"tag": "rp", "content": ")"}]}
+            ]}
+        ],
+        100, "P E1"
+    ]
+]

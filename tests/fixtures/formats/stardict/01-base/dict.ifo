@@ -1,0 +1,7 @@
+StarDict's dict ifo file
+version=3.0.0
+bookname=Sample: English-Deutsch FreeDict+WikDict dictionary (en-de)
+wordcount=41
+idxfilesize=539
+sametypesequence=h
+description=Publisher: Karl Bartel<br>Licensed under the <a href="https://creativecommons.org/licenses/by-sa/3.0/legalcode">Creative Commons Attribution-ShareAlike 3.0 Unported</a> license<br>Automatic creation of this bilingual dictionary by <a href="http://www.wikdict.com/">WikDict</a>.<br>Base data from <a href="https://www.wiktionary.org/">Wiktionary.org</a> via <a href="http://kaiko.getalp.org/about-dbnary/">DBnary</a>.<br>This dictionary comes to you through nice people<br>making it available for free and for good. It is part of<br>the FreeDict project, http://www.freedict.org/. This<br>project aims to make available many translating<br>dictionaries for free. Your contributions are welcome!

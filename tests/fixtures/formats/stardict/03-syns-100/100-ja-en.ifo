@@ -1,0 +1,9 @@
+StarDict's dict ifo file
+version=3.0.0
+bookname=Sample: Japanese-English FreeDict Dictionary (ja-en)
+wordcount=100
+idxfilesize=2014
+sametypesequence=h
+synwordcount=111
+website=http://www.edrdg.org/jmdict/j_jmdict.html
+description=Publisher: FreeDict<br>Copyright (C) 1994-2016 by various authors listed below.<br>Available under the terms of the <a href="http://creativecommons.org/licenses/by-sa/3.0/">Creative Commons Attribution-Share Alike Licence (V3.0)</a>.<br>This database was converted from the Japanese Multilingual Dictionary by Jim Breen.<br>This dictionary comes to you through nice people making it available for free and for good. It is part of the FreeDict project, <a href="http://freedict.org/">http://freedict.org/</a>. This project aims to make translating dictionaries available for free. Your contributions are<br>welcome!
