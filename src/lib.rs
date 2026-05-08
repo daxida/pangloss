@@ -7,7 +7,7 @@ mod utils;
 
 pub mod cli;
 pub mod formats;
-pub mod transformer;
+pub mod transform;
 
 mod registry;
 pub use registry::{ReaderFormat, WriterFormat};

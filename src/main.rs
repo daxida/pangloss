@@ -6,7 +6,7 @@ use tracing_subscriber::{EnvFilter, fmt::format::FmtSpan};
 use pangloss::{
     Config, Context, DataEntry, Definition, Glossary, Reader, ReaderFormat, Writer, WriterFormat,
     cli::Cli,
-    transformer::{
+    transform::{
         EntryTransformerBuilder, PreventDuplicateTerms, RemoveNewlines, ResolveMdictStyles,
     },
 };
