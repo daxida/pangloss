@@ -6,6 +6,8 @@
 
 #![allow(unused)]
 
+use std::fmt;
+
 use indexmap::IndexMap;
 use serde::{
     Deserialize, Serialize, Serializer,
@@ -82,13 +84,13 @@ pub enum DetailedDefinition {
 
 // Used in Definition convertions from Yomitan to text.
 // WARN: temporary so we can work on it
-impl std::fmt::Display for DetailedDefinition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for DetailedDefinition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::String(s) => write!(f, "{s}"),
             Self::Text(t) => write!(f, "{}", t.text),
             Self::StructuredContent(content) => {
-                let json = serde_json::to_string(content).map_err(|_| std::fmt::Error)?;
+                let json = serde_json::to_string(content).map_err(|_| fmt::Error)?;
                 write!(f, "{json}")
             }
             Self::Image(image) => write!(f, "some image"),
@@ -322,7 +324,7 @@ pub enum ImageAppearance {
     Monochrome,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum VerticalAlign {
     Baseline,
@@ -333,6 +335,24 @@ pub enum VerticalAlign {
     Middle,
     Top,
     Bottom,
+}
+
+impl TryFrom<&str> for VerticalAlign {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "baseline" => Ok(Self::Baseline),
+            "sub" => Ok(Self::Sub),
+            "super" => Ok(Self::Super),
+            "text-top" => Ok(Self::TextTop),
+            "text-bottom" => Ok(Self::TextBottom),
+            "middle" => Ok(Self::Middle),
+            "top" => Ok(Self::Top),
+            "bottom" => Ok(Self::Bottom),
+            _ => Err("unsupported vertical-align value"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -417,14 +437,14 @@ impl BacklinkNode {
 }
 
 // https://github.com/MarvNC/yomichan-dict-builder/blob/master/src/types/yomitan/termbank.ts#L35
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeStyle {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub font_style: Option<String>,
+    pub font_style: Option<FontStyle>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub font_weight: Option<String>,
+    pub font_weight: Option<FontWeight>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font_size: Option<String>,
@@ -436,5 +456,66 @@ pub struct NodeStyle {
     pub background_color: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub vertical_align: Option<VerticalAlign>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub white_space: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub list_style_type: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FontStyle {
+    Normal,
+    Italic,
+}
+
+impl fmt::Display for FontStyle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Normal => write!(f, "normal"),
+            Self::Italic => write!(f, "italic"),
+        }
+    }
+}
+
+impl TryFrom<&str> for FontStyle {
+    type Error = &'static str;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        // italic!important == italic
+        match value.trim_end_matches("!important") {
+            "normal" => Ok(Self::Normal),
+            "italic" => Ok(Self::Italic),
+            _ => Err("unsupported font-style value"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FontWeight {
+    Normal,
+    Bold,
+}
+
+impl fmt::Display for FontWeight {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Normal => write!(f, "normal"),
+            Self::Bold => write!(f, "bold"),
+        }
+    }
+}
+
+impl TryFrom<&str> for FontWeight {
+    type Error = &'static str;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "normal" => Ok(Self::Normal),
+            "bold" => Ok(Self::Bold),
+            _ => Err("unsupported font-weight value"),
+        }
+    }
 }

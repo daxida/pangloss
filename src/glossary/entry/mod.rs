@@ -4,6 +4,8 @@ pub use definition::{Definition, HtmlConverter};
 mod data_entry;
 pub use data_entry::DataEntry;
 
+mod conversion;
+
 use crate::glossary::{AltEntry, AltMap};
 
 pub const TERM_SEPARATOR: char = '|';

@@ -6,8 +6,8 @@ use clap::ValueEnum;
 use crate::{
     Context, Reader, Writer,
     formats::{
-        json::JsonFormat, mdict::MdictFormat, stardict::StardictFormat, text::TextFormat,
-        yomitan::YomitanFormat,
+        html::HtmlFormat, json::JsonFormat, mdict::MdictFormat, stardict::StardictFormat,
+        text::TextFormat, yomitan::YomitanFormat,
     },
     glossary::Glossary,
 };
@@ -28,6 +28,7 @@ pub enum WriterFormat {
     Stardict,
     Json,
     Yomitan,
+    Html,
 }
 
 impl PartialEq<WriterFormat> for ReaderFormat {
@@ -63,6 +64,7 @@ impl Writer for WriterFormat {
             Self::Stardict => StardictFormat.write_with_context(path, glossary, ctx),
             Self::Json => JsonFormat.write_with_context(path, glossary, ctx),
             Self::Yomitan => YomitanFormat.write_with_context(path, glossary, ctx),
+            Self::Html => HtmlFormat.write_with_context(path, glossary, ctx),
         }
     }
 }
@@ -88,6 +90,7 @@ impl WriterFormat {
             "ifo" => Some(Self::Stardict),
             "json" => Some(Self::Json),
             "zip" => Some(Self::Yomitan),
+            "hdir" => Some(Self::Html),
             _ => None,
         }
     }

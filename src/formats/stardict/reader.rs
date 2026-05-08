@@ -8,7 +8,7 @@ use std::{
 use anyhow::{Result, bail};
 
 use crate::{
-    Context, Reader,
+    Context, DataEntry, Reader,
     formats::stardict::{StardictFormat, sts::SameTypeSequence},
     glossary::{AltEntry, AltMap, Entry, Glossary, GlossaryInfo},
 };
@@ -71,8 +71,18 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
 
     let (entries, alt_map) = read_entries(sts, &idx, &syn, &dict_path)?;
 
+    // Can there be more than one?
+    let mut data_entries = Vec::new();
+    if let Ok(css_path) = get_single_file(parent, &["*.css"])
+        && let Ok(content) = fs::read(&css_path)
+    {
+        let fname = css_path.file_name().unwrap().to_string_lossy().to_string();
+        data_entries.push(DataEntry::new(fname, content));
+    }
+
     Ok(Glossary {
         entries,
+        data_entries,
         alt_map,
         info,
         ..Default::default()
@@ -107,7 +117,6 @@ fn read_entries(
 
         let defi = String::from_utf8_lossy(&dict_bytes[offset..offset + size]).into_owned();
         let term = String::from_utf8_lossy(b_term).into_owned();
-        tracing::debug!("{entry_index} {:?} {:?}", b_term, term);
         entries.push(Entry::new(term.clone(), sts.as_definition(defi)));
         // if there's no syn dict...
         if let Some(alts) = syn_dict.get(&entry_index).cloned() {
@@ -115,7 +124,6 @@ fn read_entries(
             alt_map.insert(term, alts_entries);
         }
     }
-    tracing::debug!("{:?}", alt_map);
 
     Ok((entries, alt_map))
 }

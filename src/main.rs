@@ -1,4 +1,4 @@
-use std::{fs::create_dir_all, time::Instant};
+use std::{fs, time::Instant};
 
 use anyhow::{Context as _, Result, bail};
 use tracing_subscriber::{EnvFilter, fmt::format::FmtSpan};
@@ -59,7 +59,7 @@ fn prelude(args: &mut Cli) -> Result<()> {
             args.output.display(),
             parent.display()
         );
-        create_dir_all(parent)?;
+        fs::create_dir_all(parent)?;
     }
 
     Ok(())
