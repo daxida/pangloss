@@ -49,21 +49,27 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     let values = read_values(&mut reader, &keys)?;
 
     // First pass: collect @@@LINK redirects
-    // links_map: main_term -> Vec<alt_term>
+    // links_map: headword -> Vec<alt_term>
     let mut links_map: HashMap<String, Vec<String>> = HashMap::new();
     for (term, defi) in keys.iter().zip(values.iter()) {
-        if let Some(main_word) = defi.strip_prefix("@@@LINK=") {
+        if let Some(headword) = defi.strip_prefix("@@@LINK=") {
+            // Trim headword, there may be newlines: "E662100\r\n"
             links_map
-                .entry(main_word.to_string())
+                .entry(headword.trim().to_string())
                 .or_default()
                 .push(term.clone());
         }
     }
+    tracing::debug!(
+        "Size of links_map: {}",
+        links_map.values().map(Vec::len).sum::<usize>()
+    );
 
     // Second pass: build entries, skip @@@LINK entries
     let mut entries = Vec::new();
     let mut alt_map = AltMap::new();
     for (term, defi) in keys.into_iter().zip(values.into_iter()) {
+        // WARN: this breaks the roundtrip invariant
         if defi.starts_with("@@@LINK=") {
             continue;
         }
