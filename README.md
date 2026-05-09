@@ -3,7 +3,7 @@
 
 # Pangloss
 
-[![Build status](https://github.com/daxida/glos/workflows/ci/badge.svg)](https://github.com/daxida/glos/actions)
+[![Build status](https://github.com/daxida/pangloss/workflows/ci/badge.svg)](https://github.com/daxida/pangloss/actions)
 
 Tool for converting, from and to, different glossary (i.e. dictionary) formats.
 

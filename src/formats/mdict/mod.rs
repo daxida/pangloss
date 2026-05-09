@@ -1,6 +1,6 @@
 //! See <https://mdict4j.readthedocs.io/zh-cn/latest/reference/fileformat.html>
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result};
 
 mod reader;
 mod writer;
@@ -19,6 +19,46 @@ impl MdictFormat {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Encoding {
+    Utf8,
+    Utf16,
+}
+
+impl Encoding {
+    pub fn char_size(&self) -> usize {
+        match self {
+            Encoding::Utf8 => 1,
+            Encoding::Utf16 => 2,
+        }
+    }
+
+    pub fn decode(&self, data: &[u8]) -> String {
+        match self {
+            Encoding::Utf8 => String::from_utf8_lossy(data).to_string(),
+            Encoding::Utf16 => {
+                let u16s: Vec<u16> = data
+                    .chunks_exact(2)
+                    .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                    .collect();
+                String::from_utf16_lossy(&u16s)
+            }
+        }
+    }
+}
+
+impl TryFrom<&str> for Encoding {
+    type Error = anyhow::Error;
+
+    fn try_from(s: &str) -> Result<Self> {
+        match s {
+            "UTF-8" => Ok(Encoding::Utf8),
+            "UTF-16" | "UTF-16LE" => Ok(Encoding::Utf16),
+            other => Err(anyhow::anyhow!("Unsupported encoding: {other}")),
+        }
+    }
+}
+
 /// No compression
 const COMPRESSION_HEADER_0: u32 = 0x0000_0000u32;
 /// Zip compression
@@ -33,11 +73,14 @@ pub enum CompressionKind {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct EncryptionKind(u8);
+pub enum EncryptionKind {
+    Zero,
+    Two,
+}
 
 impl EncryptionKind {
-    const fn encrypts_index(self) -> bool {
-        self.0 & 2 != 0
+    pub const fn encrypts_index(self) -> bool {
+        matches!(self, EncryptionKind::Two)
     }
 }
 
@@ -53,12 +96,11 @@ impl TryFrom<&str> for EncryptionKind {
             s.parse::<u8>().context("invalid encryption level")?
         };
 
-        ensure!(
-            level == 0 || level == 2,
-            "Unsupported encryption detected. Kind: {level}"
-        );
-
-        Ok(Self(level))
+        match level {
+            0 => Ok(EncryptionKind::Zero),
+            2 => Ok(EncryptionKind::Two),
+            other => Err(anyhow::anyhow!("Unsupported encryption kind: {other}")),
+        }
     }
 }
 

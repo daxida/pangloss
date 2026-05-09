@@ -95,6 +95,14 @@ fn element_to_node(el: ElementRef) -> Node {
 
     let value = el.value();
     let title = value.attr("title").map(str::to_string);
+    // Convert "class" attribute to Yomitan format
+    // let data = value
+    //     .attr("class")
+    //     .filter(|c| !c.is_empty())
+    //     .map(|c| NodeData(IndexMap::from([("class".to_string(), c.to_string())])));
+    // if data.is_some() {
+    //     tracing::warn!("{data:?}");
+    // }
 
     // helper to remove duplication
     let make = |tag: NTag| {
@@ -119,6 +127,14 @@ fn element_to_node(el: ElementRef) -> Node {
         "li" => make(NTag::Li),
         "details" => make(NTag::Details),
         "summary" => make(NTag::Summary),
+
+        "br" => Node::LineBreak(Box::new(LineBreakNode {
+            tag: LineBreakNodeTag::Br,
+            content: None,
+        })),
+
+        // From here below, these are tags not supported by Yomitan that we
+        // try to match to their closest relative.
 
         // normalize deprecated <font>
         "font" => make(NTag::Span),
@@ -147,13 +163,19 @@ fn element_to_node(el: ElementRef) -> Node {
             lang: None,
         })),
 
-        "br" => Node::LineBreak(Box::new(LineBreakNode {
-            tag: LineBreakNodeTag::Br,
-            content: None,
-        })),
+        // paragraph
+        "p" => make(NTag::Div),
 
         // fallback
         _ => content,
+        //
+        // A more verbose fallback
+        // other => {
+        //     if other != "html" {
+        //         tracing::warn!("Skipping {other}");
+        //     }
+        //     content
+        // }
     }
 }
 
@@ -202,7 +224,7 @@ fn extract_styles(value: &Element) -> Option<NodeStyle> {
                     }
                 }
                 // Do not appear in the Yomitan schema
-                (Some("width" | "font-family" | "display"), _) => (),
+                (Some("width" | "font-family" | "display" | "text-indent"), _) => (),
                 (Some(key), Some(v)) => {
                     tracing::warn!("Detected unsupported style: {key} | {v} @ {value:?}");
                 }

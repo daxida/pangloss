@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{BufReader, Read},
+    io::{BufReader, Cursor, Read},
     path::Path,
     sync::LazyLock,
 };
@@ -13,7 +13,9 @@ use regex::Regex;
 use crate::{
     Context, Reader,
     encryption::{adler32, fast_decrypt, ripemd128},
-    formats::mdict::{COMPRESSION_HEADER_0, COMPRESSION_HEADER_2, EncryptionKind, MdictFormat},
+    formats::mdict::{
+        COMPRESSION_HEADER_0, COMPRESSION_HEADER_2, Encoding, EncryptionKind, MdictFormat,
+    },
     glossary::{AltEntry, AltMap, Entry, Glossary, GlossaryInfo, GlossaryMetadata},
     utils::unescape_html,
 };
@@ -45,8 +47,8 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
 
     let encryption = EncryptionKind::try_from(info.get("encrypted").unwrap_or("no"))?;
 
-    let keys = read_keys(&mut reader, &encoding, encryption)?;
-    let values = read_values(&mut reader, &keys)?;
+    let keys = read_keys(&mut reader, encoding, encryption)?;
+    let values = read_values(&mut reader, &keys, encoding)?;
 
     // First pass: collect @@@LINK redirects
     // links_map: headword -> Vec<alt_term>
@@ -95,7 +97,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
 
 struct ParsedHeader {
     attrs: IndexMap<String, String>,
-    encoding: String,
+    encoding: Encoding,
     stylesheet: Option<StyleSheet>,
 }
 
@@ -104,7 +106,7 @@ pub type StyleSheet = IndexMap<u32, (String, String)>;
 impl ParsedHeader {
     const fn new(
         attrs: IndexMap<String, String>,
-        encoding: String,
+        encoding: Encoding,
         stylesheet: Option<StyleSheet>,
     ) -> Self {
         Self {
@@ -128,11 +130,7 @@ fn read_header<R: Read>(reader: &mut R) -> Result<ParsedHeader> {
         bail!("MDX header checksum mismatch");
     }
 
-    let utf16: Vec<u16> = raw
-        .chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]]))
-        .collect();
-    let header_str = String::from_utf16_lossy(&utf16);
+    let header_str = Encoding::Utf16.decode(&raw);
 
     parse_header_str(&header_str)
 }
@@ -160,9 +158,7 @@ fn parse_header_str(header: &str) -> Result<ParsedHeader> {
         .get("Encoding")
         .context("Missing Encoding in MDX header")?
         .clone();
-    if encoding != "UTF-8" {
-        bail!("Only encoding UTF-8 is supported, got {encoding}");
-    }
+    let encoding = Encoding::try_from(encoding.as_str())?;
 
     // https://github.com/xiaoyifang/goldendict-ng/blob/master/src/dict/mdictparser.cc#L346
     let stylesheet = if let Some(stylesheet) = attrs.get("StyleSheet") {
@@ -203,21 +199,9 @@ fn decompress_block(data: &[u8]) -> Result<Vec<u8>> {
     }
 }
 
-fn decode_string(data: &[u8], encoding: &str) -> String {
-    if encoding == "UTF-16LE" {
-        let u16s: Vec<u16> = data
-            .chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
-            .collect();
-        String::from_utf16_lossy(&u16s)
-    } else {
-        String::from_utf8_lossy(data).to_string()
-    }
-}
-
 fn read_keys<R: Read>(
     reader: &mut R,
-    encoding: &str,
+    encoding: Encoding,
     encryption: EncryptionKind,
 ) -> Result<Vec<String>> {
     let _num_blocks = read_u64_be(reader)?;
@@ -239,9 +223,8 @@ fn read_keys<R: Read>(
     }
 
     let info = decompress_block(&info_compressed)?;
-    let block_sizes = parse_key_block_info(&info)?;
+    let block_sizes = parse_key_block_info(&info, encoding)?;
 
-    let is_utf16 = encoding == "UTF-16LE";
     let mut keys = Vec::new();
 
     for (compressed_size, _) in block_sizes {
@@ -249,61 +232,54 @@ fn read_keys<R: Read>(
         reader.read_exact(&mut block_data)?;
         let block = decompress_block(&block_data)?;
 
-        let mut cursor = std::io::Cursor::new(&block);
+        let mut cursor = Cursor::new(&block);
         while (cursor.position() as usize) < block.len() {
             // Record offset (discarded)
             read_u64_be(&mut cursor)?;
 
             let mut string_bytes = Vec::new();
             loop {
-                if is_utf16 {
-                    let mut pair = [0u8; 2];
-                    if cursor.read_exact(&mut pair).is_err() {
-                        break;
+                match encoding {
+                    Encoding::Utf8 => {
+                        let b = read_u8(&mut cursor)?;
+                        if b == 0 {
+                            break;
+                        }
+                        string_bytes.push(b);
                     }
-                    if pair == [0, 0] {
-                        break;
+                    Encoding::Utf16 => {
+                        let mut pair = [0u8; 2];
+                        if cursor.read_exact(&mut pair).is_err() {
+                            break;
+                        }
+                        if pair == [0, 0] {
+                            break;
+                        }
+                        string_bytes.extend_from_slice(&pair);
                     }
-                    string_bytes.extend_from_slice(&pair);
-                } else {
-                    let b = read_u8(&mut cursor)?;
-                    if b == 0 {
-                        break;
-                    }
-                    string_bytes.push(b);
                 }
             }
 
-            keys.push(decode_string(&string_bytes, encoding));
+            keys.push(encoding.decode(&string_bytes));
         }
     }
 
     Ok(keys)
 }
 
-fn parse_key_block_info(info: &[u8]) -> Result<Vec<(u64, u64)>> {
-    let mut cursor = std::io::Cursor::new(info);
+fn parse_key_block_info(info: &[u8], encoding: Encoding) -> Result<Vec<(u64, u64)>> {
+    let mut cursor = Cursor::new(info);
     let mut blocks = Vec::new();
 
     while (cursor.position() as usize) < info.len() {
         read_u64_be(&mut cursor)?; // num keywords
 
-        // first key: u16 size + bytes + null terminator
-        let first_size = {
-            let mut buf = [0u8; 2];
-            cursor.read_exact(&mut buf)?;
-            u16::from_be_bytes(buf) as usize
-        };
-        let mut skip = vec![0u8; first_size + 1];
+        let first_size = read_u16_be(&mut cursor)? as usize;
+        let mut skip = vec![0u8; (first_size + 1) * encoding.char_size()];
         cursor.read_exact(&mut skip)?;
 
-        // last key: u16 size + bytes + null terminator
-        let last_size = {
-            let mut buf = [0u8; 2];
-            cursor.read_exact(&mut buf)?;
-            u16::from_be_bytes(buf) as usize
-        };
-        let mut skip = vec![0u8; last_size + 1];
+        let last_size = read_u16_be(&mut cursor)? as usize;
+        let mut skip = vec![0u8; (last_size + 1) * encoding.char_size()];
         cursor.read_exact(&mut skip)?;
 
         let compressed = read_u64_be(&mut cursor)?;
@@ -314,7 +290,11 @@ fn parse_key_block_info(info: &[u8]) -> Result<Vec<(u64, u64)>> {
     Ok(blocks)
 }
 
-fn read_values<R: Read>(reader: &mut R, keys: &[String]) -> Result<Vec<String>> {
+fn read_values<R: Read>(
+    reader: &mut R,
+    keys: &[String],
+    encoding: Encoding,
+) -> Result<Vec<String>> {
     let num_blocks = read_u64_be(reader)?;
     let _num_entries = read_u64_be(reader)?;
     let _info_size = read_u64_be(reader)?;
@@ -340,11 +320,25 @@ fn read_values<R: Read>(reader: &mut R, keys: &[String]) -> Result<Vec<String>> 
 
     for _ in keys {
         let start = pos;
-        while pos < all_records.len() && all_records[pos] != 0 {
-            pos += 1;
+        match encoding {
+            Encoding::Utf8 => {
+                while pos < all_records.len() && all_records[pos] != 0 {
+                    pos += 1;
+                }
+                values.push(encoding.decode(&all_records[start..pos]));
+                pos += 1; // skip the (one-byte) null terminator
+            }
+            Encoding::Utf16 => {
+                while pos + 1 < all_records.len() {
+                    if all_records[pos] == 0 && all_records[pos + 1] == 0 {
+                        break;
+                    }
+                    pos += 2;
+                }
+                values.push(encoding.decode(&all_records[start..pos]));
+                pos += 2; // skip the (two-byte) null terminator
+            }
         }
-        values.push(String::from_utf8_lossy(&all_records[start..pos]).to_string());
-        pos += 1;
     }
 
     Ok(values)
@@ -354,6 +348,12 @@ fn read_u8<R: Read>(r: &mut R) -> Result<u8> {
     let mut buf = [0u8; 1];
     r.read_exact(&mut buf)?;
     Ok(buf[0])
+}
+
+fn read_u16_be<R: Read>(r: &mut R) -> Result<u16> {
+    let mut buf = [0u8; 2];
+    r.read_exact(&mut buf)?;
+    Ok(u16::from_be_bytes(buf))
 }
 
 fn read_u32_be<R: Read>(r: &mut R) -> Result<u32> {
@@ -376,7 +376,7 @@ fn read_u64_be<R: Read>(r: &mut R) -> Result<u64> {
 
 #[cfg(test)]
 mod tests {
-    use crate::formats::mdict::reader::ParsedHeader;
+    use crate::formats::mdict::{Encoding, reader::ParsedHeader};
 
     use super::parse_header_str;
 
@@ -392,12 +392,24 @@ Title="My Dictionary"/>"#;
         let ParsedHeader {
             attrs, encoding, ..
         } = parse_header_str(header).unwrap();
-        assert_eq!(encoding, "UTF-8");
+        assert_eq!(encoding, Encoding::Utf8);
         assert_eq!(attrs["Title"], "My Dictionary");
         assert_eq!(
             attrs["Description"],
             "This is a <b>bold</b> description\nwith a newline and \"quoted\" text and &amp; entity"
         );
+    }
+
+    #[test]
+    fn parse_header_str_utf16() {
+        let header = r#"<Dictionary
+GeneratedByEngineVersion="2.0"
+Encoding="UTF-16"
+Description="A description"
+Title="My Dictionary"/>"#;
+
+        let ParsedHeader { encoding, .. } = parse_header_str(header).unwrap();
+        assert_eq!(encoding, Encoding::Utf16);
     }
 
     #[test]
