@@ -4,6 +4,7 @@
 # Pangloss
 
 [![Build status](https://github.com/daxida/pangloss/workflows/ci/badge.svg)](https://github.com/daxida/pangloss/actions)
+[![Crates.io](https://img.shields.io/crates/v/pangloss.svg)](https://crates.io/crates/pangloss)
 
 Tool for converting, from and to, different glossary (i.e. dictionary) formats.
 
