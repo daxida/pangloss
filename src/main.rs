@@ -92,11 +92,18 @@ fn run(args: &Cli) -> Result<()> {
         // tracing::debug!("{:?}", glossary.info);
         for entry in &glossary.entries {
             let converter = pangloss::HtmlConverter::default();
-            let queries = ["patata", "lesen", "全然"];
+            let queries = ["patata", "lesen", "全然", "λήμμα"];
             if queries.contains(&entry.term()) {
-                // println!("{:?}\n", entry.definition());
-                // println!("text\n{:?}\n", entry.definition().to_text());
-                println!("html\n{:?}\n", converter.convert(entry.definition()));
+                println!(
+                    "html of {}\n{:?}\n",
+                    entry.term(),
+                    converter.convert(entry.definition())
+                );
+                // println!(
+                //     "structured content of {}\n{:?}\n",
+                //     entry.term(),
+                //     entry.definition().to_yomitan(entry.term())
+                // );
             }
         }
         // tracing::debug!("{:?}", glossary);
@@ -186,10 +193,10 @@ fn pre_write(glossary: &mut Glossary, args: &Cli) {
 
     let mut builder = EntryTransformerBuilder::default();
 
-    if rformat == ReaderFormat::Mdict {
-        if let Some(stylesheet) = glossary.metadata.stylesheet.clone() {
-            builder = builder.add(ResolveMdictStyles::new(stylesheet));
-        }
+    if rformat == ReaderFormat::Mdict
+        && let Some(stylesheet) = glossary.metadata.stylesheet.clone()
+    {
+        builder = builder.add(ResolveMdictStyles::new(stylesheet));
     }
 
     if wformat == WriterFormat::Yomitan {

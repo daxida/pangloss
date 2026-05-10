@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fs,
     io::{BufReader, Cursor, Read},
     path::Path,
     sync::LazyLock,
@@ -11,7 +12,7 @@ use indexmap::IndexMap;
 use regex::Regex;
 
 use crate::{
-    Context, Reader,
+    Context, DataEntry, Reader,
     encryption::{adler32, fast_decrypt, ripemd128},
     formats::mdict::{
         COMPRESSION_HEADER_0, COMPRESSION_HEADER_2, Encoding, EncryptionKind, MdictFormat,
@@ -31,11 +32,12 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         bail!("MdictReader expects a .mdx file, got {}", path.display());
     }
 
-    let file = std::fs::File::open(path)?;
+    let file = fs::File::open(path)?;
     let mut reader = BufReader::new(&file);
 
     let ParsedHeader {
         attrs,
+        encryption,
         encoding,
         stylesheet,
     } = read_header(&mut reader)?;
@@ -45,7 +47,29 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         ..Default::default()
     };
 
-    let encryption = EncryptionKind::try_from(info.get("encrypted").unwrap_or("no"))?;
+    // TODO: abstract the file scanning from the readers
+    let mut data_entries = Vec::new();
+    if let Some(parent) = path.parent() {
+        for entry in fs::read_dir(parent)? {
+            let entry = entry?;
+            let path = entry.path();
+            let extension = path.extension().and_then(|e| e.to_str());
+            let fname = path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+
+            match extension {
+                Some("mdx") => (),
+                Some("css") => {
+                    let content = fs::read(path)?;
+                    data_entries.push(DataEntry::new(fname, content));
+                }
+                _ => tracing::warn!("Ignoring unsupported file: {fname}"),
+            }
+        }
+    }
 
     let keys = read_keys(&mut reader, encoding, encryption)?;
     let values = read_values(&mut reader, &keys, encoding)?;
@@ -70,11 +94,12 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     // Second pass: build entries, skip @@@LINK entries
     let mut entries = Vec::new();
     let mut alt_map = AltMap::new();
-    for (term, defi) in keys.into_iter().zip(values.into_iter()) {
+    for (term, definition) in keys.into_iter().zip(values.into_iter()) {
         // WARN: this breaks the roundtrip invariant
-        if defi.starts_with("@@@LINK=") {
+        if definition.starts_with("@@@LINK=") {
             continue;
         }
+        // Maybe we should trim term since we do the same in links_map
         if let Some(alts) = links_map.get(term.as_str()) {
             for alt in alts {
                 alt_map
@@ -83,20 +108,21 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
                     .push(AltEntry::only_term(alt.clone()));
             }
         }
-        entries.push(Entry::with_html(term, defi));
+        entries.push(Entry::with_html(term, definition));
     }
 
     Ok(Glossary {
         entries,
+        data_entries,
         alt_map,
         info,
         metadata,
-        ..Default::default()
     })
 }
 
 struct ParsedHeader {
     attrs: IndexMap<String, String>,
+    encryption: EncryptionKind,
     encoding: Encoding,
     stylesheet: Option<StyleSheet>,
 }
@@ -104,13 +130,15 @@ struct ParsedHeader {
 pub type StyleSheet = IndexMap<u32, (String, String)>;
 
 impl ParsedHeader {
-    const fn new(
+    fn new(
         attrs: IndexMap<String, String>,
+        encryption: EncryptionKind,
         encoding: Encoding,
         stylesheet: Option<StyleSheet>,
     ) -> Self {
         Self {
             attrs,
+            encryption,
             encoding,
             stylesheet,
         }
@@ -154,10 +182,16 @@ fn parse_header_str(header: &str) -> Result<ParsedHeader> {
         bail!("Only MDX version 2.0 is supported, got {version}");
     }
 
+    let encryption = EncryptionKind::try_from(
+        attrs
+            .get("Encrypted")
+            .context("Missing Encryption in MDX header")?
+            .as_str(),
+    )?;
+
     let encoding = attrs
         .get("Encoding")
-        .context("Missing Encoding in MDX header")?
-        .clone();
+        .context("Missing Encoding in MDX header")?;
     let encoding = Encoding::try_from(encoding.as_str())?;
 
     // https://github.com/xiaoyifang/goldendict-ng/blob/master/src/dict/mdictparser.cc#L346
@@ -176,7 +210,7 @@ fn parse_header_str(header: &str) -> Result<ParsedHeader> {
         None
     };
 
-    Ok(ParsedHeader::new(attrs, encoding, stylesheet))
+    Ok(ParsedHeader::new(attrs, encryption, encoding, stylesheet))
 }
 
 fn decompress_block(data: &[u8]) -> Result<Vec<u8>> {
@@ -384,6 +418,7 @@ mod tests {
     fn parse_header_str_multiline_description() {
         let header = r#"<Dictionary
 GeneratedByEngineVersion="2.0"
+Encrypted="No"
 Encoding="UTF-8"
 Description="This is a &lt;b&gt;bold&lt;/b&gt; description
 with a newline and &quot;quoted&quot; text and &amp;amp; entity"
@@ -404,6 +439,7 @@ Title="My Dictionary"/>"#;
     fn parse_header_str_utf16() {
         let header = r#"<Dictionary
 GeneratedByEngineVersion="2.0"
+Encrypted="No"
 Encoding="UTF-16"
 Description="A description"
 Title="My Dictionary"/>"#;
@@ -416,6 +452,7 @@ Title="My Dictionary"/>"#;
     fn parse_header_str_stylesheet() {
         let header = r#"<Dictionary
 GeneratedByEngineVersion="2.0"
+Encrypted="2"
 Encoding="UTF-8"
 Description="description"
 StyleSheet="1

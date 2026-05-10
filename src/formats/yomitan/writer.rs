@@ -6,8 +6,9 @@ use serde_json::Value;
 use zip::{ZipWriter, write::SimpleFileOptions};
 
 use crate::{
-    Context, Definition, Glossary, Writer,
+    Context, Definition, Glossary, ReaderFormat, Writer,
     formats::yomitan::{TermBankEntry, YomitanFormat, model::YomitanDefinition},
+    transform::rewrite_css_classes,
 };
 
 impl Writer for YomitanFormat {
@@ -16,7 +17,7 @@ impl Writer for YomitanFormat {
     }
 }
 
-fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<()> {
+fn write_with_context(path: &Path, glossary: &Glossary, ctx: &Context) -> Result<()> {
     let chunk_size = 1000;
     let file = File::create(path)?;
     let mut zip = ZipWriter::new(file);
@@ -65,8 +66,35 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
         zip.write_all(serde_json::to_string(&chunk)?.as_bytes())?;
     }
 
-    for data_entry in &glossary.data_entries {
-        zip.start_file(data_entry.fname.to_string_lossy(), options)?;
+    // Yomitan only accepts a single css file name 'styles.css', so we write
+    // any css files of the Glossary to that destination.
+    // https://github.com/yomidevs/yomitan/blob/master/ext/js/dictionary/dictionary-importer.js#L297
+    let css_bytes: Vec<_> = glossary
+        .data_entries
+        .iter()
+        .filter(|e| e.is_css())
+        .flat_map(|e| e.bytes.iter().copied()) // unfortunate copy
+        .collect();
+    if !css_bytes.is_empty() {
+        zip.start_file("styles.css", options)?;
+        // Transform css only if we are certain that the Glossary came from
+        // a non-Yomitan reader.
+        match ctx.config.rformat {
+            Some(ReaderFormat::Yomitan) | None => {
+                zip.write_all(&css_bytes)?;
+            }
+            _ => {
+                tracing::debug!("Transforming css classes...");
+                let css = String::from_utf8_lossy(&css_bytes);
+                let rewritten = rewrite_css_classes(&css);
+                zip.write_all(rewritten.as_bytes())?;
+            }
+        }
+    }
+
+    for data_entry in glossary.data_entries.iter().filter(|e| !e.is_css()) {
+        let fname = data_entry.fname.to_string_lossy();
+        zip.start_file(fname, options)?;
         zip.write_all(&data_entry.bytes)?;
     }
 

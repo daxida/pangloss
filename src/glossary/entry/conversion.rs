@@ -7,6 +7,7 @@
 
 use std::{fmt::Write, path::PathBuf};
 
+use indexmap::IndexMap;
 use scraper::{ElementRef, Html, Node as ScraperNode, node::Element};
 
 use crate::{Definition, Glossary, formats::yomitan::model::*};
@@ -95,14 +96,23 @@ fn element_to_node(el: ElementRef) -> Node {
 
     let value = el.value();
     let title = value.attr("title").map(str::to_string);
-    // Convert "class" attribute to Yomitan format
-    // let data = value
-    //     .attr("class")
-    //     .filter(|c| !c.is_empty())
-    //     .map(|c| NodeData(IndexMap::from([("class".to_string(), c.to_string())])));
-    // if data.is_some() {
-    //     tracing::warn!("{data:?}");
-    // }
+
+    // Yomitan's structured content supports a `data` field on nodes, which renders
+    // as HTML data attributes: e.g. `data-sc-class="grammar"`.
+    //
+    // We use this to preserve the original CSS class from the source HTML.
+    // For example, `<span class="grammar">` becomes a GenericNode with
+    // `data: Some(NodeData({"class": "grammar"}))`, which Yomitan renders as:
+    //
+    //   <span class="gloss-sc-span" data-sc-class="grammar">...</span>
+    //
+    // This allows the dictionary's stylesheet to target these nodes via attribute
+    // selectors like `span[data-sc-class="grammar"]` instead of `span.grammar`,
+    // preserving the original visual styling in Yomitan's reader.
+    let data = value
+        .attr("class")
+        .filter(|c| !c.is_empty())
+        .map(|c| NodeData(IndexMap::from([("class".to_string(), c.to_string())])));
 
     // helper to remove duplication
     let make = |tag: NTag| {
@@ -111,7 +121,7 @@ fn element_to_node(el: ElementRef) -> Node {
             content: Some(content.clone()),
             title: None,
             style: extract_styles(el.value()),
-            data: None,
+            data: data.clone(),
             lang: None,
         }))
     };
@@ -224,7 +234,7 @@ fn extract_styles(value: &Element) -> Option<NodeStyle> {
                     }
                 }
                 // Do not appear in the Yomitan schema
-                (Some("width" | "font-family" | "display" | "text-indent"), _) => (),
+                (Some("width" | "font-family" | "display" | "text-indent" | "line-height"), _) => {}
                 (Some(key), Some(v)) => {
                     tracing::warn!("Detected unsupported style: {key} | {v} @ {value:?}");
                 }

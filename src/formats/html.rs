@@ -55,7 +55,7 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
 
     // Prelude only creates the parents.
     tracing::debug!("Creating path: {}", path.display());
-    let _ = fs::create_dir_all(&path);
+    let _ = fs::create_dir_all(path);
 
     let title = glossary.info.get("title").unwrap_or("Glossary");
     let description = glossary.info.get("description").unwrap_or_default();
@@ -141,7 +141,9 @@ fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result
 
         let entries_html = entries.join("");
 
-        // It's a bit verbose due to the light/dark mode toggle
+        // It's a bit verbose due to the light/dark mode toggle.
+        // While the HtmlConverter adds the css_links, we need to add them again on top
+        // for css priority reasons.
         let html = format!(
             r#"<!DOCTYPE html>
 <html lang="en">
@@ -162,7 +164,7 @@ fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result
         body {{ margin: 0; background: #ddd; }}
         body:has(#theme-toggle:checked) {{ background: #222; }}
         #theme-toggle:checked ~ label ~ body, #theme-toggle:checked ~ body {{ background: #222; }}
-        #root {{ font-family: sans-serif; max-width: 1200px; margin: 0 auto; padding: 0 1rem; background: #f5f5f5; color: #222; min-height: 100vh; }}
+        #root {{ font-family: sans-serif; font-size: 1.15rem; line-height: 1.7; max-width: 1200px; margin: 0 auto; padding: 0 1rem; background: #f5f5f5; color: #222; min-height: 100vh; }}
         #theme-toggle:checked ~ #root {{ background: #373737; color: #eee; }}
         #root a {{ color: #0066cc; }}
         #theme-toggle:checked ~ #root a {{ color: #aaaaff; }}

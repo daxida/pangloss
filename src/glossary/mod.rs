@@ -24,9 +24,7 @@ pub struct Glossary {
 
 impl Glossary {
     pub fn css_files(&self) -> impl Iterator<Item = &DataEntry> {
-        self.data_entries
-            .iter()
-            .filter(|dentry| dentry.extension().is_some_and(|ext| ext == "css"))
+        self.data_entries.iter().filter(|dentry| dentry.is_css())
     }
 
     pub fn diagnostics(&self) {

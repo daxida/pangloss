@@ -18,6 +18,10 @@ impl DataEntry {
         self.fname.extension()
     }
 
+    pub fn is_css(&self) -> bool {
+        self.extension().is_some_and(|ext| ext == "css")
+    }
+
     pub fn extension_or_empty(&self) -> &OsStr {
         self.fname.extension().unwrap_or_else(|| OsStr::new(""))
     }
