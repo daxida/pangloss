@@ -4,7 +4,7 @@
 //! to see the glossary info at the top, and a search bar, which is basically a
 //! huge javascript hashmap in the back.
 
-use std::{fs, path::Path};
+use std::{fmt::Write, fs, path::Path};
 
 use anyhow::{Result, bail};
 
@@ -29,12 +29,12 @@ struct HtmlInfo<'a> {
 }
 
 impl<'a> HtmlInfo<'a> {
-    fn new(title: &'a str, description: &'a str) -> Self {
+    const fn new(title: &'a str, description: &'a str) -> Self {
         Self { title, description }
     }
 }
 
-const MAX_FILE_SIZE: usize = 102400; // 100KB per file
+const MAX_FILE_SIZE: usize = 102_400; // 100KB per file
 
 fn make_anchor(term: &str) -> String {
     term.to_lowercase()
@@ -74,10 +74,11 @@ fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result
     let mut css_links = String::new();
     for data_entry in glossary.css_files() {
         fs::write(path.join(&data_entry.fname), &data_entry.bytes)?;
-        css_links.push_str(&format!(
+        let _ = write!(
+            css_links,
             r#"<link rel="stylesheet" href="./{}" />"#,
             data_entry.fname.display()
-        ));
+        );
     }
 
     let mut file_index = 0usize;
@@ -98,8 +99,7 @@ fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result
         let anchor = make_anchor(term);
 
         search_entries.push(format!(
-            r#"{{ term: {:?}, page: "{:05}.html", anchor: {:?} }}"#,
-            term, file_index, anchor
+            r#"{{ term: {term:?}, page: "{file_index:05}.html", anchor: {anchor:?} }}"#
         ));
 
         let text = format!(
@@ -142,8 +142,7 @@ fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result
         let entries_html = entries.join("");
 
         // It's a bit verbose due to the light/dark mode toggle.
-        // While the HtmlConverter adds the css_links, we need to add them again on top
-        // for css priority reasons.
+        // While HtmlConverter adds css_links, we need to re-add them on top for priority reasons.
         let html = format!(
             r#"<!DOCTYPE html>
 <html lang="en">
@@ -156,9 +155,7 @@ fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result
     <style>
         /* Don't let user css overwrite the scrollbar... */
         html, body, #root, .entries {{
-            overflow: visible !important;
-            overflow-y: auto !important;
-            max-height: none !important;
+            overflow: visible !important; overflow-y: auto !important; max-height: none !important;
         }}
 
         body {{ margin: 0; background: #ddd; }}
@@ -238,7 +235,7 @@ fn write_info(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result<
 
     let mut info_rows = String::new();
     for (key, value) in &glossary.info {
-        info_rows.push_str(&format!("<tr><td>{key}</td><td>{value}</td></tr>\n"));
+        let _ = writeln!(info_rows, "<tr><td>{key}</td><td>{value}</td></tr>");
     }
     let info_html = format!(
         r#"<!DOCTYPE html>

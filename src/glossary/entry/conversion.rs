@@ -126,6 +126,7 @@ fn element_to_node(el: ElementRef) -> Node {
         }))
     };
 
+    #[allow(clippy::match_same_arms)]
     match el.value().name() {
         // unwrap artificial root
         "span" if el.value().attr("data-root").is_some() => content,

@@ -88,6 +88,7 @@ fn run(args: &Cli) -> Result<()> {
     glossary.diagnostics();
 
     #[allow(unused)]
+    #[allow(clippy::items_after_statements)]
     fn dbg_state(glossary: &Glossary) {
         // tracing::debug!("{:?}", glossary.info);
         for entry in &glossary.entries {
@@ -196,15 +197,15 @@ fn pre_write(glossary: &mut Glossary, args: &Cli) {
     if rformat == ReaderFormat::Mdict
         && let Some(stylesheet) = glossary.metadata.stylesheet.clone()
     {
-        builder = builder.add(ResolveMdictStyles::new(stylesheet));
+        builder = builder.with(ResolveMdictStyles::new(stylesheet));
     }
 
     if wformat == WriterFormat::Yomitan {
-        builder = builder.add(RemoveNewlines);
+        builder = builder.with(RemoveNewlines);
     }
 
     if wformat == WriterFormat::Json {
-        builder = builder.add(PreventDuplicateTerms::new(&glossary.alt_map));
+        builder = builder.with(PreventDuplicateTerms::new(&glossary.alt_map));
     }
 
     let transformer = builder.build();

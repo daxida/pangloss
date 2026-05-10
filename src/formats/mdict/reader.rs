@@ -130,7 +130,7 @@ struct ParsedHeader {
 pub type StyleSheet = IndexMap<u32, (String, String)>;
 
 impl ParsedHeader {
-    fn new(
+    const fn new(
         attrs: IndexMap<String, String>,
         encryption: EncryptionKind,
         encoding: Encoding,

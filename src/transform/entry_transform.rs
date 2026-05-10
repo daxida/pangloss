@@ -18,7 +18,7 @@ pub struct EntryTransformerBuilder<'a> {
 
 impl Default for EntryTransformerBuilder<'_> {
     fn default() -> Self {
-        Self::new().add(TrimWhiteSpace)
+        Self::new().with(TrimWhiteSpace)
     }
 }
 
@@ -30,7 +30,7 @@ impl<'a> EntryTransformerBuilder<'a> {
     }
 
     #[must_use]
-    pub fn add(mut self, transform: impl EntryTransform + 'a) -> Self {
+    pub fn with(mut self, transform: impl EntryTransform + 'a) -> Self {
         self.transforms.push(Box::new(transform));
         self
     }

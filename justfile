@@ -12,7 +12,8 @@ clippy *args:
   -A clippy::unicode_not_nfc \
   -A clippy::wildcard_imports \
   -A clippy::missing_errors_doc \
-  -A clippy::cast_possible_truncation
+  -A clippy::cast_possible_truncation \
+  -A clippy::option_if_let_else
 
 alias r := run
 

@@ -7,6 +7,8 @@
 //! stylesheets (they also pull an obscene amount of dependencies). This custom
 //! implementation should be enough, assuming the css we are given is valid.
 
+use std::fmt::Write;
+
 pub fn rewrite_css_classes(css: &str) -> String {
     let mut out = String::with_capacity(css.len());
     let mut chars = css.chars().peekable();
@@ -35,7 +37,7 @@ pub fn rewrite_css_classes(css: &str) -> String {
                 if ident.is_empty() {
                     out.push('.');
                 } else {
-                    out.push_str(&format!(r#"[data-sc-class="{ident}"]"#));
+                    let _ = write!(out, r#"[data-sc-class="{ident}"]"#);
                 }
             }
             _ => out.push(c),
@@ -65,10 +67,10 @@ mod tests {
 
     #[test]
     fn multiple_rules() {
-        let input = r#"
+        let input = r"
             span.headword { font-size: 14pt; font-weight: bold; }
             span.grammar { font-style: italic; }
-        "#;
+        ";
         let output = rewrite_css_classes(input);
         assert!(output.contains(r#"span[data-sc-class="headword"]"#));
         assert!(output.contains(r#"span[data-sc-class="grammar"]"#));
@@ -93,13 +95,13 @@ mod tests {
 
     #[test]
     fn real_dictionary() {
-        let input = r#"
+        let input = r"
             div.head { margin-top: 10pt; font-family: Verdana; }
             div.definition { margin-left: 10pt; line-height: 140%; }
             span.headword { font-size: 14pt; font-weight: bold; color: #2049a4; }
             span.grammar { font-weight: bold; font-style: italic; color: #778899; }
             span.translation { font-weight: normal; color: black; }
-        "#;
+        ";
         let output = rewrite_css_classes(input);
         assert!(output.contains(r#"div[data-sc-class="head"]"#));
         assert!(output.contains(r#"div[data-sc-class="definition"]"#));

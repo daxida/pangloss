@@ -26,17 +26,17 @@ pub enum Encoding {
 }
 
 impl Encoding {
-    pub fn char_size(&self) -> usize {
+    pub const fn char_size(&self) -> usize {
         match self {
-            Encoding::Utf8 => 1,
-            Encoding::Utf16 => 2,
+            Self::Utf8 => 1,
+            Self::Utf16 => 2,
         }
     }
 
     pub fn decode(&self, data: &[u8]) -> String {
         match self {
-            Encoding::Utf8 => String::from_utf8_lossy(data).to_string(),
-            Encoding::Utf16 => {
+            Self::Utf8 => String::from_utf8_lossy(data).to_string(),
+            Self::Utf16 => {
                 let u16s: Vec<u16> = data
                     .chunks_exact(2)
                     .map(|c| u16::from_le_bytes([c[0], c[1]]))
@@ -52,8 +52,8 @@ impl TryFrom<&str> for Encoding {
 
     fn try_from(s: &str) -> Result<Self> {
         match s {
-            "UTF-8" => Ok(Encoding::Utf8),
-            "UTF-16" | "UTF-16LE" => Ok(Encoding::Utf16),
+            "UTF-8" => Ok(Self::Utf8),
+            "UTF-16" | "UTF-16LE" => Ok(Self::Utf16),
             other => Err(anyhow::anyhow!("Unsupported encoding: {other}")),
         }
     }
@@ -80,7 +80,7 @@ pub enum EncryptionKind {
 
 impl EncryptionKind {
     pub const fn encrypts_index(self) -> bool {
-        matches!(self, EncryptionKind::Two)
+        matches!(self, Self::Two)
     }
 }
 
@@ -97,8 +97,8 @@ impl TryFrom<&str> for EncryptionKind {
         };
 
         match level {
-            0 => Ok(EncryptionKind::Zero),
-            2 => Ok(EncryptionKind::Two),
+            0 => Ok(Self::Zero),
+            2 => Ok(Self::Two),
             other => Err(anyhow::anyhow!("Unsupported encryption kind: {other}")),
         }
     }
