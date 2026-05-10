@@ -126,6 +126,20 @@ fn element_to_node(el: ElementRef) -> Node {
         }))
     };
 
+    let make_bold = || {
+        Node::Generic(Box::new(GenericNode {
+            tag: NTag::Div,
+            content: Some(content.clone()),
+            title: title.clone(),
+            style: Some(NodeStyle {
+                font_weight: Some(FontWeight::Bold),
+                ..extract_styles(el.value()).unwrap_or_default()
+            }),
+            data: data.clone(),
+            lang: None,
+        }))
+    };
+
     #[allow(clippy::match_same_arms)]
     match el.value().name() {
         // unwrap artificial root
@@ -151,17 +165,7 @@ fn element_to_node(el: ElementRef) -> Node {
         "font" => make(NTag::Span),
 
         // bold and italic
-        "b" | "strong" => Node::Generic(Box::new(GenericNode {
-            tag: NTag::Span,
-            content: Some(content),
-            title,
-            style: Some(NodeStyle {
-                font_weight: Some(FontWeight::Bold),
-                ..extract_styles(el.value()).unwrap_or_default()
-            }),
-            data: None,
-            lang: None,
-        })),
+        "b" | "strong" => make_bold(),
         "i" | "em" => Node::Generic(Box::new(GenericNode {
             tag: NTag::Span,
             content: Some(content),
@@ -176,17 +180,24 @@ fn element_to_node(el: ElementRef) -> Node {
 
         // paragraph
         "p" => make(NTag::Div),
+        // https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/section
+        "section" => make(NTag::Div),
+        // https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dl
+        "dl" => make(NTag::Ul),
+        "dd" => make(NTag::Li),
+
+        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => make_bold(),
 
         // fallback
-        _ => content,
+        // _ => content,
         //
         // A more verbose fallback
-        // other => {
-        //     if other != "html" {
-        //         tracing::warn!("Skipping {other}");
-        //     }
-        //     content
-        // }
+        other => {
+            if !["html", "a", "link"].contains(&other) {
+                tracing::warn!("Skipping {other}");
+            }
+            content
+        }
     }
 }
 
