@@ -1,6 +1,4 @@
 //! Reader for [Yomitan](https://github.com/yomidevs/yomitan) dictionary archives.
-//!
-//! Note that we don't populate alts, since converting to Vec<String> is lossy
 
 use std::{fs::File, io::Read, path::Path, sync::LazyLock};
 

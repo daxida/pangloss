@@ -1,19 +1,25 @@
 use indexmap::IndexMap;
 
-/// INVARIANT: a `GlossaryInfo` always contains the "name" key in the first place.
-#[derive(Debug, Default)]
+/// [`Glossary`](crate::Glossary) metadata.
+///
+/// INVARIANT: it always contains the "name" key in the first place.
+#[derive(Debug)]
 pub struct GlossaryInfo {
     inner: IndexMap<String, String>,
 }
 
+impl Default for GlossaryInfo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlossaryInfo {
     pub fn new() -> Self {
-        let mut info = Self {
-            inner: IndexMap::new(),
-        };
-        // Put name always at the beginning
-        info.inner.insert("name".to_string(), "name".to_string());
-        info
+        // Note that "name" (the key) respects the lowercase invariant.
+        Self {
+            inner: IndexMap::from([("name".to_string(), "name".to_string())]),
+        }
     }
 
     pub fn len(&self) -> usize {

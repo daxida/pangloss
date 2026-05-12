@@ -5,7 +5,7 @@
 //! pair. It can not deal with formats like Yomitan that contain extra information
 //! about the pair (i.e. the causal chain).
 //!
-//! Does not reuse the [`crate::entry::Entry`] type since, here, we expect MOST of
+//! Does not reuse the [`crate::Entry`] type since, here, we expect MOST of
 //! the definitions to be None (i.e. the most common case is a simple term/alts pair),
 //! while an Entry without definition is a pathological case.
 

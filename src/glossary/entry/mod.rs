@@ -10,9 +10,9 @@ use crate::glossary::{AltEntry, AltMap};
 
 pub const TERM_SEPARATOR: char = '|';
 
-/// A (non-data) entry; that is, a headword and a (text/html etc.) definition.
+/// An entry. That is, a (string) headword and a [`Definition`].
 ///
-/// A [`crate::Glossary`] is composed of these, and some metadata.
+/// A [`Glossary`](crate::Glossary) is composed of these, and some metadata.
 //
 // Right now there is a broken assumption: that the term/definition pair is
 // separated from alts, and can not coincide. Unfortunately, the yomitan format

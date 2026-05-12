@@ -12,6 +12,8 @@ pub use conversion::HtmlConverter;
 
 // Wrapping seems better than having definition as a different attrribute of Entry
 // in order to force every caller to think about what they are adding/consuming to the glossary.
+//
+/// An [`Entry`](crate::Entry) definition.
 #[derive(Clone, Debug)]
 pub enum Definition {
     // There should be another "Raw" variant, which is just text but we guarantee
@@ -25,7 +27,7 @@ pub enum Definition {
 }
 
 // TODO: better than cow would be to pass by value, which makes sense since they are
-// "into" consuming versions. It does require some sort of consuming iteration over a Glossary.
+// "to" consuming versions. It does require some sort of consuming iteration over a Glossary.
 impl Definition {
     // TODO: use cow, don't clone
     pub fn to_text(&self) -> String {

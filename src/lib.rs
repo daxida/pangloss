@@ -13,7 +13,7 @@ mod registry;
 pub use registry::{ReaderFormat, WriterFormat};
 
 mod glossary;
-pub use glossary::{DataEntry, Definition, Glossary, HtmlConverter};
+pub use glossary::{DataEntry, Definition, Entry, Glossary, GlossaryInfo, HtmlConverter};
 
 mod context;
 pub use context::{Config, Context};
