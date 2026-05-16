@@ -195,9 +195,9 @@ fn pre_write(glossary: &mut Glossary, args: &Cli) {
     let mut builder = EntryTransformerBuilder::default();
 
     if rformat == ReaderFormat::Mdict
-        && let Some(stylesheet) = glossary.metadata.stylesheet.clone()
+        && let Some(ref stylesheet) = glossary.metadata.stylesheet
     {
-        builder = builder.with(ResolveMdictStyles::new(stylesheet));
+        builder = builder.with(ResolveMdictStyles::new(stylesheet.clone()));
     }
 
     if wformat == WriterFormat::Yomitan {

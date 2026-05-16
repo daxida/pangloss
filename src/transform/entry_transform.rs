@@ -1,4 +1,6 @@
-use std::{cell::RefCell, collections::HashSet, sync::LazyLock};
+//! Transforms over an [`Entry`].
+
+use std::{cell::RefCell, collections::HashSet, fmt, sync::LazyLock};
 
 use regex::Regex;
 
@@ -12,6 +14,8 @@ pub trait EntryTransform {
     fn apply(&self, entry: &mut Entry);
 }
 
+// To simplify chaining, even though the EntryTransformer struct is just a
+// glorified vector (and even though we don't even chain ourselves!)
 pub struct EntryTransformerBuilder<'a> {
     transforms: Vec<Box<dyn EntryTransform + 'a>>,
 }
@@ -61,8 +65,8 @@ impl EntryTransformer<'_> {
     }
 }
 
-impl std::fmt::Display for EntryTransformer<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for EntryTransformer<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "EntryTransformer: {} transforms", self.transforms.len())
     }
 }

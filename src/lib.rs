@@ -13,7 +13,10 @@ mod registry;
 pub use registry::{ReaderFormat, WriterFormat};
 
 mod glossary;
-pub use glossary::{DataEntry, Definition, Entry, Glossary, GlossaryInfo, HtmlConverter};
+pub use glossary::{AltEntry, AltMap, DataEntry, Definition, Entry};
+pub use glossary::{Glossary, GlossaryInfo, GlossaryMetadata};
+// This should be somewhere else (?)
+pub use glossary::HtmlConverter;
 
 mod context;
 pub use context::{Config, Context};
