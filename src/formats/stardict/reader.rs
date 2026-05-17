@@ -77,7 +77,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         && let Ok(content) = fs::read(&css_path)
     {
         let fname = css_path.file_name().unwrap().to_string_lossy().to_string();
-        data_entries.push(DataEntry::new(fname, content));
+        data_entries.push(DataEntry::new(fname, content)?);
     }
 
     Ok(Glossary {
