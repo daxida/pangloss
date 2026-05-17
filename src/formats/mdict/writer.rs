@@ -43,14 +43,15 @@ fn write_with_context(
     write_key_blocks(&mut writer, &pairs, compression)?;
     write_record_blocks(&mut writer, &pairs, compression)?;
 
-    // SAFETY: There should always be a parent by main.rs logic.
-    let parent = path.parent().unwrap();
-    // mdict convention: write on the same folder
-    let opath = parent;
-    let _ = fs::create_dir(opath);
-    for data_entry in glossary.css_files() {
-        let fname = opath.join(data_entry.fname());
-        fs::write(&fname, data_entry.bytes())?;
+    if !glossary.data_entries.is_empty() {
+        // SAFETY: There should always be a parent by main.rs logic.
+        let parent = path.parent().unwrap();
+        let opath = parent; // mdict convention: same folder
+        let _ = fs::create_dir(opath);
+        for data_entry in glossary.css_files() {
+            let fname = opath.join(data_entry.fname());
+            fs::write(&fname, data_entry.bytes())?;
+        }
     }
 
     Ok(())

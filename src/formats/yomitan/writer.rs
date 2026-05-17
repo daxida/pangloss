@@ -77,8 +77,7 @@ fn write_with_context(path: &Path, glossary: &Glossary, ctx: &Context) -> Result
         .collect();
     if !css_bytes.is_empty() {
         zip.start_file("styles.css", options)?;
-        // Transform css only if we are certain that the Glossary came from
-        // a non-Yomitan reader.
+        // Transform css only if the Glossary came from a non-Yomitan reader.
         match ctx.config.rformat {
             Some(ReaderFormat::Yomitan) | None => {
                 zip.write_all(&css_bytes)?;

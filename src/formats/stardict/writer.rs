@@ -33,14 +33,15 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
 
     write_compact(sts, path, glossary)?;
 
-    // SAFETY: There should always be a parent by main.rs logic.
-    let parent = path.parent().unwrap();
-    let opath = parent.join("res"); // stardict convention
-    // TODO: don't create this dir if there are no extra resources to write
-    let _ = fs::create_dir(&opath);
-    for data_entry in glossary.css_files() {
-        let fname = opath.join(data_entry.fname());
-        fs::write(&fname, data_entry.bytes())?;
+    if !glossary.data_entries.is_empty() {
+        // SAFETY: There should always be a parent by main.rs logic.
+        let parent = path.parent().unwrap();
+        let opath = parent.join("res"); // stardict convention
+        let _ = fs::create_dir(&opath);
+        for data_entry in glossary.css_files() {
+            let fname = opath.join(data_entry.fname());
+            fs::write(&fname, data_entry.bytes())?;
+        }
     }
 
     Ok(())
