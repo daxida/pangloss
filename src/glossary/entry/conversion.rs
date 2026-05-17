@@ -126,20 +126,6 @@ fn element_to_node(el: ElementRef) -> Node {
         }))
     };
 
-    let make_bold = || {
-        Node::Generic(Box::new(GenericNode {
-            tag: NTag::Div,
-            content: Some(content.clone()),
-            title: title.clone(),
-            style: Some(NodeStyle {
-                font_weight: Some(FontWeight::Bold),
-                ..extract_styles(el.value()).unwrap_or_default()
-            }),
-            data: data.clone(),
-            lang: None,
-        }))
-    };
-
     #[allow(clippy::match_same_arms)]
     match el.value().name() {
         // unwrap artificial root
@@ -165,13 +151,36 @@ fn element_to_node(el: ElementRef) -> Node {
         "font" => make(NTag::Span),
 
         // bold and italic
-        "b" | "strong" => make_bold(),
+        "b" | "strong" => Node::Generic(Box::new(GenericNode {
+            tag: NTag::Span,
+            content: Some(content.clone()),
+            title: title.clone(),
+            style: Some(NodeStyle {
+                font_weight: Some(FontWeight::Bold),
+                ..extract_styles(el.value()).unwrap_or_default()
+            }),
+            data: data.clone(),
+            lang: None,
+        })),
         "i" | "em" => Node::Generic(Box::new(GenericNode {
             tag: NTag::Span,
             content: Some(content),
             title,
             style: Some(NodeStyle {
                 font_style: Some(FontStyle::Italic),
+                ..extract_styles(el.value()).unwrap_or_default()
+            }),
+            data: None,
+            lang: None,
+        })),
+
+        // We just pass "small" since Yomitan has css for: --font-size-small
+        "small" => Node::Generic(Box::new(GenericNode {
+            tag: NTag::Span,
+            content: Some(content),
+            title,
+            style: Some(NodeStyle {
+                font_size: Some("small".to_string()),
                 ..extract_styles(el.value()).unwrap_or_default()
             }),
             data: None,
@@ -186,15 +195,31 @@ fn element_to_node(el: ElementRef) -> Node {
         "dl" => make(NTag::Ul),
         "dd" => make(NTag::Li),
 
-        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => make_bold(),
+        //
+        // Compared to b/bold, this is a div and not a span
+        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => Node::Generic(Box::new(GenericNode {
+            tag: NTag::Div,
+            content: Some(content.clone()),
+            title: title.clone(),
+            style: Some(NodeStyle {
+                font_weight: Some(FontWeight::Bold),
+                ..extract_styles(el.value()).unwrap_or_default()
+            }),
+            data: data.clone(),
+            lang: None,
+        })),
 
         // fallback
         // _ => content,
         //
         // A more verbose fallback
         other => {
-            if !["html", "a", "link"].contains(&other) {
-                tracing::warn!("Skipping {other}");
+            if !["html", "a", "link", "img"].contains(&other) {
+                tracing::warn!(
+                    tag = other,
+                    // html = %el.html(),
+                    "Skipping"
+                );
             }
             content
         }
