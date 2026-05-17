@@ -64,7 +64,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
                 Some("mdx") => (),
                 Some("css") => {
                     let content = fs::read(path)?;
-                    data_entries.push(DataEntry::new(fname, content)?);
+                    data_entries.push(DataEntry::new(fname, content));
                 }
                 _ => tracing::warn!("Ignoring unsupported file: {fname}"),
             }

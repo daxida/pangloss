@@ -71,7 +71,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
 
     let mut data_entries = Vec::new();
     if let Some((fname, bytes)) = zip_contents.styles_css {
-        data_entries.push(DataEntry::new(fname, bytes)?);
+        data_entries.push(DataEntry::new(fname, bytes));
     }
 
     Ok(Glossary {

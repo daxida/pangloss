@@ -111,7 +111,7 @@ fn run(args: &Cli) -> Result<()> {
     }
     // dbg_state(&glossary);
 
-    add_extra_files(&mut glossary, &ctx)?;
+    add_extra_files(&mut glossary, &ctx);
 
     let now = Instant::now();
     pre_write(&mut glossary, args);
@@ -140,7 +140,7 @@ const EXTRA_CSS_DISPLAY: &[u8] = include_bytes!(concat!(
     "/assets/yomitan/styles/display.css"
 ));
 
-fn add_extra_files(glossary: &mut Glossary, ctx: &Context) -> Result<()> {
+fn add_extra_files(glossary: &mut Glossary, ctx: &Context) {
     match (ctx.config.rformat, ctx.config.wformat) {
         (Some(ReaderFormat::Yomitan), Some(WriterFormat::Yomitan)) => (),
         (Some(ReaderFormat::Yomitan), _) => {
@@ -148,14 +148,13 @@ fn add_extra_files(glossary: &mut Glossary, ctx: &Context) -> Result<()> {
                 "Detected Yomitan as output format: adding a copy of the Yomitan side css!"
             );
             glossary.data_entries.extend(vec![
-                DataEntry::new("structured-content.css", EXTRA_CSS_SC.to_vec())?,
-                DataEntry::new("material.css", EXTRA_CSS_MATERIAL.to_vec())?,
-                DataEntry::new("display.css", EXTRA_CSS_DISPLAY.to_vec())?,
+                DataEntry::new("structured-content.css", EXTRA_CSS_SC.to_vec()),
+                DataEntry::new("material.css", EXTRA_CSS_MATERIAL.to_vec()),
+                DataEntry::new("display.css", EXTRA_CSS_DISPLAY.to_vec()),
             ]);
         }
         _ => (),
     }
-    Ok(())
 }
 
 fn post_read(glossary: &mut Glossary, args: &Cli) -> Result<()> {

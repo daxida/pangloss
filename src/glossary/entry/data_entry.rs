@@ -1,10 +1,10 @@
 use std::{ffi::OsStr, path::PathBuf};
 
-use anyhow::{Result, ensure};
-
 /// A data entry.
 ///
-/// INVARIANT: fname must exist.
+/// Note: we cannot enforce a "file must exist" invariant here because
+/// entries can be constructed from in-memory sources (e.g. zip archives)
+/// that have no corresponding path on disk.
 #[derive(Debug)]
 pub struct DataEntry {
     pub fname: PathBuf,
@@ -12,10 +12,12 @@ pub struct DataEntry {
 }
 
 impl DataEntry {
-    pub fn new<P: Into<PathBuf>>(fname: P, bytes: Vec<u8>) -> Result<Self> {
+    pub fn new<P: Into<PathBuf>>(fname: P, bytes: Vec<u8>) -> Self {
         let fname = fname.into();
-        ensure!(fname.exists(), "file does not exist: {}", fname.display());
-        Ok(Self { fname, bytes })
+        if !fname.exists() {
+            tracing::warn!(fname = %fname.display(), "file does not exist");
+        }
+        Self { fname, bytes }
     }
 
     pub fn extension(&self) -> Option<&OsStr> {
@@ -39,17 +41,8 @@ mod tests {
     #[test]
     fn new_with_existing_file_succeeds() {
         let file = NamedTempFile::new().unwrap();
-        let entry = DataEntry::new(file.path(), vec![1, 2, 3]).unwrap();
+        let entry = DataEntry::new(file.path(), vec![1, 2, 3]);
         assert_eq!(entry.bytes, vec![1, 2, 3]);
         assert_eq!(entry.fname, file.path());
-    }
-
-    #[test]
-    fn new_with_missing_file_returns_err() {
-        let result = DataEntry::new("/nonexistent/path/file.bin", vec![]);
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "file does not exist: /nonexistent/path/file.bin"
-        );
     }
 }
