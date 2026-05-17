@@ -73,7 +73,7 @@ fn write_with_context(path: &Path, glossary: &Glossary, ctx: &Context) -> Result
         .data_entries
         .iter()
         .filter(|e| e.is_css())
-        .flat_map(|e| e.bytes.iter().copied()) // unfortunate copy
+        .flat_map(|e| e.bytes().iter().copied()) // unfortunate copy
         .collect();
     if !css_bytes.is_empty() {
         zip.start_file("styles.css", options)?;
@@ -93,9 +93,9 @@ fn write_with_context(path: &Path, glossary: &Glossary, ctx: &Context) -> Result
     }
 
     for data_entry in glossary.data_entries.iter().filter(|e| !e.is_css()) {
-        let fname = data_entry.fname.to_string_lossy();
+        let fname = data_entry.fname().to_string_lossy();
         zip.start_file(fname, options)?;
-        zip.write_all(&data_entry.bytes)?;
+        zip.write_all(data_entry.bytes())?;
     }
 
     zip.finish()?;

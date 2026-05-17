@@ -25,7 +25,10 @@ pub struct HtmlConverter {
 impl HtmlConverter {
     pub fn new(glossary: &Glossary) -> Self {
         Self {
-            css_files: glossary.css_files().map(|d| d.fname.clone()).collect(),
+            css_files: glossary
+                .css_files()
+                .map(|d| d.fname().to_path_buf())
+                .collect(),
             tag_bank: glossary.metadata.tag_bank.clone(),
         }
     }

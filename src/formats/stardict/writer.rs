@@ -39,8 +39,8 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
     // TODO: don't create this dir if there are no extra resources to write
     let _ = fs::create_dir(&opath);
     for data_entry in glossary.css_files() {
-        let fname = opath.join(&data_entry.fname);
-        fs::write(&fname, &data_entry.bytes)?;
+        let fname = opath.join(data_entry.fname());
+        fs::write(&fname, data_entry.bytes())?;
     }
 
     Ok(())

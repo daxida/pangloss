@@ -1,4 +1,7 @@
-use std::{ffi::OsStr, path::PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 /// A data entry.
 ///
@@ -7,8 +10,8 @@ use std::{ffi::OsStr, path::PathBuf};
 /// that have no corresponding path on disk.
 #[derive(Debug)]
 pub struct DataEntry {
-    pub fname: PathBuf,
-    pub bytes: Vec<u8>,
+    fname: PathBuf,
+    bytes: Vec<u8>,
 }
 
 impl DataEntry {
@@ -18,6 +21,14 @@ impl DataEntry {
             tracing::warn!(fname = %fname.display(), "file does not exist");
         }
         Self { fname, bytes }
+    }
+
+    pub fn fname(&self) -> &Path {
+        &self.fname
+    }
+
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
     }
 
     pub fn extension(&self) -> Option<&OsStr> {

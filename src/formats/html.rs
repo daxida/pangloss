@@ -73,11 +73,11 @@ fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result
 
     let mut css_links = String::new();
     for data_entry in glossary.css_files() {
-        fs::write(path.join(&data_entry.fname), &data_entry.bytes)?;
+        fs::write(path.join(data_entry.fname()), data_entry.bytes())?;
         let _ = write!(
             css_links,
             r#"<link rel="stylesheet" href="./{}" />"#,
-            data_entry.fname.display()
+            data_entry.fname().display()
         );
     }
 
