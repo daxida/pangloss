@@ -1,8 +1,9 @@
 use std::path::Path;
 
 use pretty_assertions::assert_eq;
+use tempfile::tempdir;
 
-use pangloss::{Reader, Writer, formats::stardict::StardictFormat};
+use pangloss::{Definition, Entry, Glossary, Reader, Writer, formats::stardict::StardictFormat};
 
 fn do_undo(ipath: &Path) {
     let tmpdir = tempfile::TempDir::new().expect("failed to create temp dir");
@@ -60,3 +61,40 @@ fn do_undo_syns() {
 //         "tests/fixtures/formats/stardict/04-syns-bar/bar.ifo",
 //     ));
 // }
+
+#[test]
+fn test_idx_entries_written_in_sorted_order() {
+    let dir = tempdir().unwrap();
+    let ifo_path = dir.path().join("test.ifo");
+
+    let entries = vec![
+        Entry::new(
+            "zebra".to_string(),
+            Definition::Text("last alphabetically".to_string()),
+        ),
+        Entry::new(
+            "apple".to_string(),
+            Definition::Text("first alphabetically".to_string()),
+        ),
+        Entry::new(
+            "mango".to_string(),
+            Definition::Text("middle alphabetically".to_string()),
+        ),
+    ];
+    let glossary = Glossary {
+        entries,
+        ..Default::default()
+    };
+
+    StardictFormat.write(&ifo_path, &glossary).unwrap();
+
+    let read_glossary = StardictFormat.read(&ifo_path).unwrap();
+    let read_terms: Vec<_> = read_glossary.entries.iter().map(|e| e.term()).collect();
+
+    let mut expected = read_terms.clone();
+    expected.sort_by_key(|t| t.to_lowercase());
+    assert_eq!(
+        read_terms, expected,
+        "idx entries should be in lexicographic order"
+    );
+}

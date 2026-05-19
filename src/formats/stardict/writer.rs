@@ -10,7 +10,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use crate::{
     Context, Writer,
     formats::stardict::{StardictFormat, sts::SameTypeSequence},
-    glossary::{Entry, Glossary, HtmlConverter},
+    glossary::{Glossary, HtmlConverter},
 };
 
 impl Writer for StardictFormat {
@@ -61,14 +61,15 @@ pub fn write_compact(sts: SameTypeSequence, path: &Path, glossary: &Glossary) ->
     let mut entry_idx = 0usize;
     let mut dict_mark = 0u32;
 
+    // Don't sort entries directly to avoid copying. Instead, sort indexes.
     // A bit hacky way to sort keys, as this format requires
     tracing::debug!("Sorting {:?} entries...", glossary.entries.len());
-    let mut entries: Vec<&Entry> = glossary.entries.iter().collect();
-    entries.sort_by_key(|a| a.term().to_lowercase());
+    let mut order: Vec<usize> = (0..glossary.entries.len()).collect();
+    order.sort_by_key(|&i| glossary.entries[i].term().to_lowercase());
 
     let converter = HtmlConverter::new(glossary);
 
-    for entry in &glossary.entries {
+    for entry in order.into_iter().map(|i| &glossary.entries[i]) {
         let b_term = entry.b_term();
         for b_alt in entry.b_alts(alt_map) {
             alt_index_list.push((b_alt, entry_idx));
