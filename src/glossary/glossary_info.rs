@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 /// [`Glossary`](crate::Glossary) metadata.
 ///
 /// INVARIANT: it always contains the "name" key in the first place.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct GlossaryInfo {
     inner: IndexMap<String, String>,
 }

@@ -16,7 +16,7 @@ use crate::glossary::Definition;
 // IndexMap for reproducibility, not really needed
 pub type AltMap = IndexMap<String, Vec<AltEntry>>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct AltEntry {
     term: String,
     definition: Option<Definition>,

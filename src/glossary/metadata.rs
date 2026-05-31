@@ -1,6 +1,6 @@
 use crate::formats::{mdict::StyleSheet, yomitan::TagBank};
 
-#[derive(Debug, Default)]
+#[derive(Debug, PartialEq, Default)]
 pub struct GlossaryMetadata {
     // Yomitan definition tag metadata
     pub tag_bank: Option<TagBank>,

@@ -11,7 +11,7 @@ pub type TagBank = Vec<TagBankEntry>;
 /// A tag. Attribute names come from [wty].
 ///
 /// [wty]: https://github.com/yomidevs/wiktionary-to-yomitan/blob/master/src/models/yomitan.rs
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct TagBankEntry {
     pub short_tag: String, // tagName
     pub category: String,  // category

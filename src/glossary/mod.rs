@@ -13,7 +13,7 @@ pub use metadata::GlossaryMetadata;
 /// The universal intermediary data format passed between readers and writers.
 ///
 /// All format-specific readers produce one, and all writers consume one.
-#[derive(Debug, Default)]
+#[derive(Debug, PartialEq, Default)]
 pub struct Glossary {
     pub entries: Vec<Entry>,
     pub data_entries: Vec<DataEntry>,

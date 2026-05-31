@@ -21,7 +21,7 @@ pub const TERM_SEPARATOR: char = '|';
 // Note that the fields are not public because I haven't decided yet on the internals.
 // Mainly, whether to store the term as a String or some other type. This results
 // in a less ergonomic API.
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Entry {
     term: String,
     definition: Definition,

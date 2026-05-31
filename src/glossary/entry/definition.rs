@@ -14,7 +14,7 @@ pub use conversion::HtmlConverter;
 // in order to force every caller to think about what they are adding/consuming to the glossary.
 //
 /// An [`Entry`](crate::Entry) definition.
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Definition {
     // There should be another "Raw" variant, which is just text but we guarantee
     // that every conversion to it is trivial. This should fix the case where sometimes

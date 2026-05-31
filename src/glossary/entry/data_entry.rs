@@ -8,7 +8,7 @@ use std::{
 /// Note: we cannot enforce a "file must exist" invariant here because
 /// entries can be constructed from in-memory sources (e.g. zip archives)
 /// that have no corresponding path on disk.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DataEntry {
     fname: PathBuf,
     bytes: Vec<u8>,
