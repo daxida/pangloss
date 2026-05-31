@@ -29,6 +29,16 @@ pub enum Definition {
 // TODO: better than cow would be to pass by value, which makes sense since they are
 // "to" consuming versions. It does require some sort of consuming iteration over a Glossary.
 impl Definition {
+    // Heuristically guess if the given text is plain text or html
+    // NOTE: the heuristic is very bad!
+    pub fn from_raw_text(raw: &str) -> Self {
+        if raw.contains('<') && raw.contains('>') {
+            Self::Html(raw.to_string())
+        } else {
+            Self::Text(raw.to_string())
+        }
+    }
+
     // TODO: use cow, don't clone
     pub fn to_text(&self) -> String {
         match self {

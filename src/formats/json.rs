@@ -46,7 +46,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         if let Some(info_key) = key.strip_prefix("##") {
             info.insert(info_key, value_str);
         } else {
-            entries.push(Entry::new(key, Definition::Html(value_str)));
+            entries.push(Entry::new(key, Definition::from_raw_text(&value_str)));
         }
     }
 

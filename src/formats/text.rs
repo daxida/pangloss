@@ -56,10 +56,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
             let mut alts = parts
                 .map(|alt| AltEntry::only_term(alt.to_string()))
                 .peekable();
-            entries.push(Entry::new(
-                term.clone(),
-                Definition::Text(value.to_string()),
-            ));
+            entries.push(Entry::new(term.clone(), Definition::from_raw_text(value)));
             if alts.peek().is_some() {
                 alt_map.entry(term).or_default().extend(alts);
             }
