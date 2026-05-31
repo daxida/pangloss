@@ -138,17 +138,23 @@ fn collect_zip_contents(zip: &mut ZipArchive<File>) -> Result<ZipContents> {
 fn parse_index_file(json: &[u8]) -> Result<GlossaryInfo> {
     let index: IndexMap<String, Value> = serde_json::from_slice(json)?;
 
-    if index.get("format").and_then(Value::as_i64) != Some(3) {
-        bail!("Only Yomitan dictionaries of format 3 are supported");
+    let version = index
+        .get("version")
+        .or_else(|| index.get("format"))
+        .and_then(Value::as_i64);
+    match version {
+        None => bail!("Missing 'version' or 'format' field in index.json"),
+        Some(3) => {}
+        Some(v) => bail!("Unsupported Yomitan version {v}, only version 3 is supported"),
     }
 
     let mut info = GlossaryInfo::new();
-    for (key, value) in &index {
+    for (key, value) in index {
         let value_str = match value {
-            Value::String(s) => s.clone(),
+            Value::String(s) => s,
             other => other.to_string(),
         };
-        info.insert(key, value_str);
+        info.insert(&key, value_str);
     }
     Ok(info)
 }
