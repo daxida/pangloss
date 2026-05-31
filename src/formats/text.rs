@@ -53,12 +53,16 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
             // Use the first one as term; the rest as alts
             let mut parts = key.split(TERM_SEPARATOR);
             let term = parts.next().unwrap_or(key).to_string();
-            let alts = parts.map(|alt| AltEntry::only_term(alt.to_string()));
+            let mut alts = parts
+                .map(|alt| AltEntry::only_term(alt.to_string()))
+                .peekable();
             entries.push(Entry::new(
                 term.clone(),
                 Definition::Text(value.to_string()),
             ));
-            alt_map.entry(term).or_default().extend(alts);
+            if alts.peek().is_some() {
+                alt_map.entry(term).or_default().extend(alts);
+            }
         }
     }
 
@@ -78,7 +82,6 @@ impl Writer for TextFormat {
 
 fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<()> {
     let mut lines = Vec::new();
-    let alt_map = &glossary.alt_map;
 
     for (key, value) in &glossary.info {
         let clean_value = if key == "description" {
@@ -89,6 +92,7 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
         lines.push(format!("##{key}\t{clean_value}"));
     }
 
+    let alt_map = &glossary.alt_map;
     for entry in &glossary.entries {
         lines.push(format!(
             "{}\t{}",
