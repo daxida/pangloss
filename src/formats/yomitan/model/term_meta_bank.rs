@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 pub type TermMetaBank = Vec<TermMetaBankEntry>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum TermMetaBankEntry {
     Frequency(String, FreqKind, FrequencyData),
@@ -27,25 +27,25 @@ impl TermMetaBankEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FreqKind {
     Freq,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PitchKind {
     Pitch,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum IpaKind {
     Ipa,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum FrequencyData {
     Plain(FrequencyTerm),
@@ -55,7 +55,7 @@ pub enum FrequencyData {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum FrequencyTerm {
     Term(String),
@@ -68,13 +68,13 @@ pub enum FrequencyTerm {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PitchData {
     pub reading: String,
     pub pitches: Vec<PitchAccentInfo>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PitchAccentInfo {
     pub position: NumberOrString,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -85,27 +85,27 @@ pub struct PitchAccentInfo {
     pub tags: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum NumberOrString {
     Number(u32),
     String(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum NumberOrList {
     Single(u32),
     List(Vec<u32>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IpaData {
     pub reading: String,
     pub transcriptions: Vec<IpaTranscription>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IpaTranscription {
     pub ipa: String,
     #[serde(skip_serializing_if = "Option::is_none")]
