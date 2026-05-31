@@ -76,9 +76,11 @@ fn strip_html(s: &str) -> String {
 }
 
 pub fn html_to_structured_content(html: &str) -> DetailedDefinition {
-    let fragment = Html::parse_fragment(html);
-    let root = fragment.root_element();
-    DetailedDefinition::StructuredContent(StructuredContent::new(element_to_node(root)))
+    DetailedDefinition::StructuredContent(StructuredContent::new(html_to_node(html)))
+}
+
+fn html_to_node(html: &str) -> Node {
+    element_to_node(Html::parse_fragment(html).root_element())
 }
 
 fn element_to_node(el: ElementRef) -> Node {
@@ -198,7 +200,6 @@ fn element_to_node(el: ElementRef) -> Node {
         "dl" => make(NTag::Ul),
         "dd" => make(NTag::Li),
 
-        //
         // Compared to b/bold, this is a div and not a span
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => Node::Generic(Box::new(GenericNode {
             tag: NTag::Div,
@@ -216,8 +217,10 @@ fn element_to_node(el: ElementRef) -> Node {
         // _ => content,
         //
         // A more verbose fallback
+        //
+        // TODO: add some default support for unrecognized tags
         other => {
-            if !["html", "a", "link", "img"].contains(&other) {
+            if !["html", "a", "link", "img", "script"].contains(&other) {
                 tracing::warn!(
                     tag = other,
                     // html = %el.html(),
@@ -288,5 +291,19 @@ fn extract_styles(value: &Element) -> Option<NodeStyle> {
     } else {
         // tracing::warn!("Detected some style: {style:?}");
         Some(style)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn span_maps_to_span() {
+        let node = html_to_node("<span>word</span>");
+        match node {
+            Node::Generic(g) => assert_eq!(g.tag, NTag::Span),
+            other => panic!("expected Generic(Span), got {other:?}"),
+        }
     }
 }
