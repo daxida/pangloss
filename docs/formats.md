@@ -18,3 +18,12 @@ Document features
 - [fixtures](https://github.com/yomidevs/yomitan/tree/master/test/data/dictionaries/valid-dictionary1)
 - [ts schemas](https://github.com/MarvNC/yomichan-dict-builder/tree/master/src/types/yomitan)
   - [term bank](https://github.com/MarvNC/yomichan-dict-builder/blob/master/src/types/yomitan/termbank.ts#L35)
+
+## Unsupported
+
+For future reference.
+
+### Aard2 slob
+
+- [repo](https://github.com/itkach/slob)
+- [site](https://aarddict.org/)
