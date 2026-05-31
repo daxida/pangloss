@@ -36,3 +36,6 @@ pub trait Writer {
         self.write_with_context(path, glossary, &Context::default())
     }
 }
+
+pub trait ReaderWriter: Reader + Writer {}
+impl<T: Reader + Writer> ReaderWriter for T {}
