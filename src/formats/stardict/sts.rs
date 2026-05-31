@@ -1,7 +1,12 @@
-use crate::glossary::{Definition, GlossaryInfo};
+use std::collections::HashSet;
+
+use crate::{
+    Glossary,
+    glossary::{Definition, GlossaryInfo},
+};
 
 // https://code.google.com/archive/p/babiloo/wikis/StarDict_format.wiki
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SameTypeSequence {
     Html, // h
     Text, // m
@@ -29,9 +34,33 @@ impl SameTypeSequence {
         }
     }
 
-    pub fn detect_from_info(info: &GlossaryInfo) -> Self {
-        // We only trust the metadata: we won't go scanning definitions to see if the user
-        // forgot to add the information in the .ifo file...
+    // Try the metadata and then fallback to a quick glossary scan
+    pub fn from_glossary(glossary: &Glossary) -> Self {
+        match Self::from_info(&glossary.info) {
+            SameTypeSequence::None => {
+                tracing::info!("No sts in info. Detecting from entries.");
+                let kinds: HashSet<Self> = glossary
+                    .entries
+                    .iter()
+                    .map(|e| match e.definition() {
+                        Definition::Text(_) => Self::Text,
+                        Definition::Html(_) => Self::Html,
+                        Definition::Yomitan(_) => unreachable!(),
+                    })
+                    .collect();
+                if kinds.len() == 1 {
+                    kinds.into_iter().next().unwrap()
+                } else {
+                    SameTypeSequence::None
+                }
+            }
+            other => other,
+        }
+    }
+
+    // Try the metadata: this is our only choice when reading an .ifo file
+    // since at that point we don't have any definition in memory.
+    pub fn from_info(info: &GlossaryInfo) -> Self {
         Self::from_opt_str(info.get("sametypesequence"))
     }
 

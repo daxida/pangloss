@@ -24,7 +24,7 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
         bail!("Stardict reader expects a ifo file, got {}", path.display());
     }
 
-    let mut sts = SameTypeSequence::detect_from_info(&glossary.info);
+    let mut sts = SameTypeSequence::from_glossary(glossary);
     if matches!(sts, SameTypeSequence::None) {
         tracing::warn!("In theory, the writer doesn't work with same type sequence equal to None.");
         sts = SameTypeSequence::Html;

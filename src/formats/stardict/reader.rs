@@ -48,7 +48,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     };
 
     let info = read_ifo_file(path)?;
-    let sts = SameTypeSequence::detect_from_info(&info);
+    let sts = SameTypeSequence::from_info(&info);
 
     // In theory, we only care about 32
     let is_large_file = match info.get("idxoffsetbits") {
