@@ -145,7 +145,7 @@ fn add_extra_files(glossary: &mut Glossary, ctx: &Context) {
         (Some(ReaderFormat::Yomitan), Some(WriterFormat::Yomitan)) => (),
         (Some(ReaderFormat::Yomitan), _) => {
             tracing::info!(
-                "Detected Yomitan as output format: adding a copy of the Yomitan side css!"
+                "Detected Yomitan as read format: adding a copy of the Yomitan side css!"
             );
             glossary.data_entries.extend(vec![
                 DataEntry::new("structured-content.css", EXTRA_CSS_SC.to_vec()),
