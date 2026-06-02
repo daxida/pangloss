@@ -5,7 +5,7 @@ use clap::Parser;
 use crate::registry::{ReaderFormat, WriterFormat};
 
 #[derive(Parser, Debug)]
-#[command(name = "glos", about = "Convert between glossary formats", version = env!("CARGO_PKG_VERSION"))]
+#[command(name = "pangloss", about = "Convert between glossary formats", version = env!("CARGO_PKG_VERSION"))]
 pub struct Cli {
     #[arg(help = "Path to the input dictionary file")]
     pub input: PathBuf,
