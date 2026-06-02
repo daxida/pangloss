@@ -52,13 +52,10 @@ You can use this as a library to make dictionaries, but that is not a priority.
 
 ## TODO
 - [ ] Make a good stardict from jitendex-yomitan!!
-  - [x] Where did the pronunciation go? (it's not in yomitan for [reasons](https://github.com/yomidevs/yomitan/issues/324))
-  - [x] circled numbers
   - [ ] Star icon
     - [ ] Consume non-css data files!
   - [ ] Requires glossary transform
   - [ ] Compact mode (?)
     - [ ] Can we pass an extra data_file via CLI?
 
-- [ ] (*) (?) Use serde_with (for skip serializing none)
 - [ ] Be able to use the dictionary in memory? (like the dictuils AI slop)

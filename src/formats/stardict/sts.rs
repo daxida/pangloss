@@ -37,7 +37,7 @@ impl SameTypeSequence {
     // Try the metadata and then fallback to a quick glossary scan
     pub fn from_glossary(glossary: &Glossary) -> Self {
         match Self::from_info(&glossary.info) {
-            SameTypeSequence::None => {
+            Self::None => {
                 tracing::info!("No sts in info. Detecting from entries.");
                 let kinds: HashSet<Self> = glossary
                     .entries
@@ -51,7 +51,7 @@ impl SameTypeSequence {
                 if kinds.len() == 1 {
                     kinds.into_iter().next().unwrap()
                 } else {
-                    SameTypeSequence::None
+                    Self::None
                 }
             }
             other => other,

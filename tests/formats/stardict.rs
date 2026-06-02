@@ -89,7 +89,7 @@ fn test_idx_entries_written_in_sorted_order() {
     StardictFormat.write(&ifo_path, &glossary).unwrap();
 
     let read_glossary = StardictFormat.read(&ifo_path).unwrap();
-    let read_terms: Vec<_> = read_glossary.entries.iter().map(|e| e.term()).collect();
+    let read_terms: Vec<_> = read_glossary.entries.iter().map(Entry::term).collect();
 
     let mut expected = read_terms.clone();
     expected.sort_by_key(|t| t.to_lowercase());

@@ -159,7 +159,7 @@ fn element_to_node(el: ElementRef) -> Node {
         "b" | "strong" => Node::Generic(Box::new(GenericNode {
             tag: NTag::Span,
             content: Some(content.clone()),
-            title: title.clone(),
+            title,
             style: Some(NodeStyle {
                 font_weight: Some(FontWeight::Bold),
                 ..extract_styles(el.value()).unwrap_or_default()
@@ -204,7 +204,7 @@ fn element_to_node(el: ElementRef) -> Node {
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => Node::Generic(Box::new(GenericNode {
             tag: NTag::Div,
             content: Some(content.clone()),
-            title: title.clone(),
+            title,
             style: Some(NodeStyle {
                 font_weight: Some(FontWeight::Bold),
                 ..extract_styles(el.value()).unwrap_or_default()

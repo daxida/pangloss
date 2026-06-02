@@ -94,7 +94,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     // Second pass: build entries, skip @@@LINK entries
     let mut entries = Vec::new();
     let mut alt_map = AltMap::new();
-    for (term, definition) in keys.into_iter().zip(values.into_iter()) {
+    for (term, definition) in keys.into_iter().zip(values) {
         // WARN: this breaks the roundtrip invariant
         if definition.starts_with("@@@LINK=") {
             continue;
