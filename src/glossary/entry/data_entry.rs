@@ -17,9 +17,9 @@ pub struct DataEntry {
 impl DataEntry {
     pub fn new<P: Into<PathBuf>>(fname: P, bytes: Vec<u8>) -> Self {
         let fname = fname.into();
-        if !fname.exists() {
-            tracing::warn!(fname = %fname.display(), "file does not exist");
-        }
+        // if !fname.exists() {
+        //     tracing::warn!(fname = %fname.display(), "file does not exist");
+        // }
         Self { fname, bytes }
     }
 
