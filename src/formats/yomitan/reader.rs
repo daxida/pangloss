@@ -26,16 +26,21 @@ static TERM_META_BANK_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^term_meta_bank_(\d+)\.json$").unwrap());
 static TAG_BANK_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^tag_bank_(\d+)\.json$").unwrap());
+static KANJI_BANK_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^kanji_bank_(\d+)\.json$").unwrap());
+static KANJI_META_BANK_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^kanji_meta_bank_(\d+)\.json$").unwrap());
 
+// note that kanji_banks and kanji_meta_banks are skipped
 struct ZipContents {
     // list of names
     term_banks: Vec<String>,
     term_meta_banks: Vec<String>,
     tag_banks: Vec<String>,
-
-    index_json: Vec<u8>,
-    // (fname, bytes)
-    styles_css: Option<(String, Vec<u8>)>,
+    // bytes of index.json
+    index: Vec<u8>,
+    // media file names (including styles.css etc.) and their bytes
+    media: Vec<(String, Vec<u8>)>,
 }
 
 impl Reader for YomitanFormat {
@@ -49,7 +54,11 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     let mut zip = ZipArchive::new(file)?;
 
     let zip_contents = collect_zip_contents(&mut zip)?;
-    let info = parse_index_file(&zip_contents.index_json)?;
+    let info = parse_index_file(&zip_contents.index)?;
+
+    if zip_contents.media.len() > 0 {
+        tracing::debug!("Found {} media files", zip_contents.media.len());
+    }
 
     let (mut entries, alt_map) = read_term_banks(&mut zip, &zip_contents.term_banks)?;
     let term_meta_bank = read_term_meta_banks(&mut zip, &zip_contents.term_meta_banks)?;
@@ -69,10 +78,11 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         ..Default::default()
     };
 
-    let mut data_entries = Vec::new();
-    if let Some((fname, bytes)) = zip_contents.styles_css {
-        data_entries.push(DataEntry::new(fname, bytes));
-    }
+    let data_entries = zip_contents
+        .media
+        .into_iter()
+        .map(|(fname, bytes)| DataEntry::new(fname, bytes))
+        .collect();
 
     Ok(Glossary {
         entries,
@@ -89,8 +99,9 @@ fn collect_zip_contents(zip: &mut ZipArchive<File>) -> Result<ZipContents> {
     let mut term_banks = Vec::new();
     let mut term_meta_banks = Vec::new();
     let mut tag_banks = Vec::new();
-    let mut index_json = None;
-    let mut styles_css = None;
+    let mut media = Vec::new();
+
+    let mut index = None;
 
     for i in 0..zip.len() {
         let mut file = zip.by_index(i)?;
@@ -106,19 +117,23 @@ fn collect_zip_contents(zip: &mut ZipArchive<File>) -> Result<ZipContents> {
         } else if let Some(captures) = TAG_BANK_RE.captures(&name) {
             let n = captures.get(1).unwrap().as_str().parse::<u32>()?;
             tag_banks.push((n, name));
+        } else if KANJI_BANK_RE.captures(&name).is_some()
+            || KANJI_META_BANK_RE.captures(&name).is_some()
+        {
+            tracing::warn!("Unsupported kanji file in zip: {name}");
         } else if name == "index.json" {
             buf.clear();
             file.read_to_end(&mut buf)?;
-            index_json = Some(buf);
-        } else if name == "style.css" || name == "styles.css" {
-            tracing::debug!("Detected styles file: {name}");
-            buf.clear();
-            file.read_to_end(&mut buf)?;
-            styles_css = Some((name, buf));
+            index = Some(buf);
         } else if name.ends_with("json") {
             tracing::warn!("Unrecognized json file in zip: {name}");
         } else {
-            tracing::trace!("Unrecognized file in zip: {name}");
+            if name == "styles.css" {
+                tracing::debug!("Detected styles file: {name}");
+            }
+            buf.clear();
+            file.read_to_end(&mut buf)?;
+            media.push((name, buf));
         }
     }
 
@@ -130,8 +145,8 @@ fn collect_zip_contents(zip: &mut ZipArchive<File>) -> Result<ZipContents> {
         term_banks: term_banks.into_iter().map(|(_, name)| name).collect(),
         term_meta_banks: term_meta_banks.into_iter().map(|(_, name)| name).collect(),
         tag_banks: tag_banks.into_iter().map(|(_, name)| name).collect(),
-        index_json: index_json.context("No index.json found in zip")?,
-        styles_css,
+        index: index.context("No index.json found in zip")?,
+        media,
     })
 }
 
