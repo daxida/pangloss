@@ -33,10 +33,10 @@ static KANJI_META_BANK_RE: LazyLock<Regex> =
 
 // note that kanji_banks and kanji_meta_banks are skipped
 struct ZipContents {
-    // list of names
-    term_banks: Vec<String>,
-    term_meta_banks: Vec<String>,
-    tag_banks: Vec<String>,
+    // names and bytes
+    term_banks: Vec<(String, Vec<u8>)>,
+    term_meta_banks: Vec<(String, Vec<u8>)>,
+    tag_banks: Vec<(String, Vec<u8>)>,
     // bytes of index.json
     index: Vec<u8>,
     // media file names (including styles.css etc.) and their bytes
@@ -56,14 +56,16 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     let zip_contents = collect_zip_contents(&mut zip)?;
     let info = parse_index_file(&zip_contents.index)?;
 
+    let (mut entries, alt_map) = read_term_banks(&zip_contents.term_banks)?;
+    let term_meta_bank = read_term_meta_banks(&zip_contents.term_meta_banks)?;
+    let tag_bank = read_tag_banks(&zip_contents.tag_banks)?;
+
     if zip_contents.media.len() > 0 {
         tracing::debug!("Found {} media files", zip_contents.media.len());
     }
-
-    let (mut entries, alt_map) = read_term_banks(&mut zip, &zip_contents.term_banks)?;
-    let term_meta_bank = read_term_meta_banks(&mut zip, &zip_contents.term_meta_banks)?;
     tracing::debug!("Found {} term meta bank entries", term_meta_bank.len());
-    // TODO: This should be added to read_term_meta_banks fn
+    tracing::debug!("Found {} tag bank entries", tag_bank.len());
+
     for term_meta_bank_entry in term_meta_bank {
         entries.push(Entry::new(
             term_meta_bank_entry.term().clone(),
@@ -71,8 +73,6 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         ));
     }
 
-    let tag_bank = read_tag_banks(&mut zip, &zip_contents.tag_banks)?;
-    tracing::debug!("Found {} tag bank entries", tag_bank.len());
     let metadata = GlossaryMetadata {
         tag_bank: Some(tag_bank),
         ..Default::default()
@@ -100,51 +100,60 @@ fn collect_zip_contents(zip: &mut ZipArchive<File>) -> Result<ZipContents> {
     let mut term_meta_banks = Vec::new();
     let mut tag_banks = Vec::new();
     let mut media = Vec::new();
-
     let mut index = None;
+    let mut buf = Vec::new();
 
     for i in 0..zip.len() {
         let mut file = zip.by_index(i)?;
         let name = file.name().to_string();
-        let mut buf = Vec::new();
 
         if let Some(captures) = TERM_BANK_RE.captures(&name) {
             let n = captures.get(1).unwrap().as_str().parse::<u32>()?;
-            term_banks.push((n, name));
+            file.read_to_end(&mut buf)?;
+            term_banks.push((n, name, std::mem::take(&mut buf)));
         } else if let Some(captures) = TERM_META_BANK_RE.captures(&name) {
             let n = captures.get(1).unwrap().as_str().parse::<u32>()?;
-            term_meta_banks.push((n, name));
+            file.read_to_end(&mut buf)?;
+            term_meta_banks.push((n, name, std::mem::take(&mut buf)));
         } else if let Some(captures) = TAG_BANK_RE.captures(&name) {
             let n = captures.get(1).unwrap().as_str().parse::<u32>()?;
-            tag_banks.push((n, name));
+            file.read_to_end(&mut buf)?;
+            tag_banks.push((n, name, std::mem::take(&mut buf)));
         } else if KANJI_BANK_RE.captures(&name).is_some()
             || KANJI_META_BANK_RE.captures(&name).is_some()
         {
             tracing::warn!("Unsupported kanji file in zip: {name}");
         } else if name == "index.json" {
-            buf.clear();
             file.read_to_end(&mut buf)?;
-            index = Some(buf);
+            index = Some(std::mem::take(&mut buf));
         } else if name.ends_with("json") {
             tracing::warn!("Unrecognized json file in zip: {name}");
         } else {
             if name == "styles.css" {
                 tracing::debug!("Detected styles file: {name}");
             }
-            buf.clear();
             file.read_to_end(&mut buf)?;
-            media.push((name, buf));
+            media.push((name, std::mem::take(&mut buf)));
         }
     }
 
-    term_banks.sort_by_key(|(n, _)| *n);
-    term_meta_banks.sort_by_key(|(n, _)| *n);
-    tag_banks.sort_by_key(|(n, _)| *n);
+    term_banks.sort_by_key(|(n, _, _)| *n);
+    term_meta_banks.sort_by_key(|(n, _, _)| *n);
+    tag_banks.sort_by_key(|(n, _, _)| *n);
 
     Ok(ZipContents {
-        term_banks: term_banks.into_iter().map(|(_, name)| name).collect(),
-        term_meta_banks: term_meta_banks.into_iter().map(|(_, name)| name).collect(),
-        tag_banks: tag_banks.into_iter().map(|(_, name)| name).collect(),
+        term_banks: term_banks
+            .into_iter()
+            .map(|(_, name, bytes)| (name, bytes))
+            .collect(),
+        term_meta_banks: term_meta_banks
+            .into_iter()
+            .map(|(_, name, bytes)| (name, bytes))
+            .collect(),
+        tag_banks: tag_banks
+            .into_iter()
+            .map(|(_, name, bytes)| (name, bytes))
+            .collect(),
         index: index.context("No index.json found in zip")?,
         media,
     })
@@ -204,24 +213,10 @@ fn read_term_bank(json: &[u8], entries: &mut Vec<Entry>, alt_map: &mut AltMap) -
     Ok(())
 }
 
-fn read_term_banks(
-    zip: &mut ZipArchive<File>,
-    term_banks: &[String],
-) -> Result<(Vec<Entry>, AltMap)> {
-    let banks_bytes: Vec<_> = term_banks
-        .iter()
-        .map(|name| {
-            let mut entry = zip.by_name(name)?;
-            let mut buf = Vec::new();
-            entry.read_to_end(&mut buf)?;
-            Ok(buf)
-        })
-        .collect::<Result<_>>()?;
-
-    // Parse in parallel
-    let result: (Vec<_>, AltMap) = banks_bytes
+fn read_term_banks(term_banks: &[(String, Vec<u8>)]) -> Result<(Vec<Entry>, AltMap)> {
+    Ok(term_banks
         .par_iter()
-        .map(|bytes| {
+        .map(|(_, bytes)| {
             let mut entries = Vec::new();
             let mut alt_map = AltMap::new();
             read_term_bank(bytes, &mut entries, &mut alt_map)?;
@@ -238,46 +233,30 @@ fn read_term_banks(
                 }
                 (entries, alt_map)
             },
-        );
-
-    Ok(result)
+        ))
 }
 
 // Read all <T> banks into a single one.
 //
 // The simple version, for when we don't need to separate data.
-fn read_banks<T>(zip: &mut ZipArchive<File>, names: &[String]) -> Result<T>
+fn read_banks<T>(banks: &[(String, Vec<u8>)]) -> Result<T>
 where
     T: Send + for<'de> serde::Deserialize<'de> + IntoIterator + FromIterator<T::Item>,
     T::Item: Send,
 {
-    let banks_bytes: Vec<_> = names
-        .iter()
-        .map(|name| {
-            let mut entry = zip.by_name(name)?;
-            let mut buf = Vec::new();
-            entry.read_to_end(&mut buf)?;
-            Ok(buf)
-        })
-        .collect::<Result<_>>()?;
-
-    let result: T = banks_bytes
+    Ok(banks
         .par_iter()
-        .map(|bytes| Ok(serde_json::from_slice::<T>(bytes)?))
+        .map(|(_, bytes)| Ok(serde_json::from_slice::<T>(bytes)?))
         .collect::<Result<Vec<_>>>()?
         .into_iter()
         .flatten()
-        .collect();
-    Ok(result)
+        .collect::<T>())
 }
 
-fn read_term_meta_banks(
-    zip: &mut ZipArchive<File>,
-    term_meta_banks: &[String],
-) -> Result<TermMetaBank> {
-    read_banks::<TermMetaBank>(zip, term_meta_banks)
+fn read_term_meta_banks(term_meta_banks: &[(String, Vec<u8>)]) -> Result<TermMetaBank> {
+    read_banks::<TermMetaBank>(term_meta_banks)
 }
 
-fn read_tag_banks(zip: &mut ZipArchive<File>, tag_banks: &[String]) -> Result<TagBank> {
-    read_banks::<TagBank>(zip, tag_banks)
+fn read_tag_banks(tag_banks: &[(String, Vec<u8>)]) -> Result<TagBank> {
+    read_banks::<TagBank>(tag_banks)
 }
