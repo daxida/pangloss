@@ -53,9 +53,6 @@ You can use this as a library to make dictionaries, but that is not a priority.
 ## TODO
 - [ ] Make a good stardict from jitendex-yomitan!!
   - [ ] Star icon
-    - [ ] Consume non-css data files!
   - [ ] Requires glossary transform
   - [ ] Compact mode (?)
     - [ ] Can we pass an extra data_file via CLI?
-
-- [ ] Be able to use the dictionary in memory? (like the dictuils AI slop)
