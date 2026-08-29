@@ -16,6 +16,21 @@ pub fn rewrite_css_classes(css: &str) -> String {
 
     while let Some(c) = chars.next() {
         match c {
+            // Copy comments over verbatim. Their contents are not css
+            '/' if chars.peek() == Some(&'*') => {
+                out.push(c);
+                // The opening '*' must not double as the closing one, so that
+                // "/*/" reads as an unterminated comment.
+                out.extend(chars.next());
+                let mut prev = '\0';
+                for c in chars.by_ref() {
+                    out.push(c);
+                    if prev == '*' && c == '/' {
+                        break;
+                    }
+                    prev = c;
+                }
+            }
             '{' => {
                 depth += 1;
                 out.push(c);
@@ -91,6 +106,27 @@ mod tests {
         assert!(output.contains(r#"span[data-sc-class="grammar"]"#));
         assert!(output.contains(".5em"));
         assert!(output.contains(".8"));
+    }
+
+    #[test]
+    fn comments_are_copied_over_verbatim() {
+        let input = "/* see .foo */ span.grammar { color: red; }";
+        let output = rewrite_css_classes(input);
+        assert!(output.contains("/* see .foo */"), "{output}");
+        assert!(
+            output.contains(r#"span[data-sc-class="grammar"]"#),
+            "{output}"
+        );
+    }
+
+    #[test]
+    fn a_brace_in_a_comment_does_not_disable_rewriting() {
+        let input = "/* an opening brace { */ span.grammar { color: red; }";
+        let output = rewrite_css_classes(input);
+        assert!(
+            output.contains(r#"span[data-sc-class="grammar"]"#),
+            "{output}"
+        );
     }
 
     #[test]
