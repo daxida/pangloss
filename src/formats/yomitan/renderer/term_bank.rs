@@ -30,7 +30,7 @@ impl TermBankEntry {
         };
 
         format!(
-            r#"<div class="entry">{headword}<div class="entry-body"><div class="definition-item-content">{tags}{defs}</div></div>"#
+            r#"<div class="entry">{headword}<div class="entry-body"><div class="definition-item-content">{tags}{defs}</div></div></div>"#
         )
     }
 }
