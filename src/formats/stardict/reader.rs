@@ -11,6 +11,7 @@ use crate::{
     Context, DataEntry, Reader,
     formats::stardict::{StardictFormat, sts::SameTypeSequence},
     glossary::{AltEntry, AltMap, Entry, Glossary, GlossaryInfo},
+    utils::parent_dir,
 };
 
 fn get_single_file(path: &Path, patterns: &[&str]) -> Result<PathBuf> {
@@ -43,9 +44,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     if path.extension().and_then(|e| e.to_str()) != Some("ifo") {
         bail!("Stardict reader expects a ifo file, got {}", path.display());
     }
-    let Some(parent) = path.parent() else {
-        bail!("The ifo file was found at a location with no parent.");
-    };
+    let parent = parent_dir(path);
 
     let info = read_ifo_file(path)?;
     let sts = SameTypeSequence::from_info(&info);

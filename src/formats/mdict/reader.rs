@@ -18,7 +18,7 @@ use crate::{
         COMPRESSION_HEADER_0, COMPRESSION_HEADER_2, Encoding, EncryptionKind, MdictFormat,
     },
     glossary::{AltEntry, AltMap, Entry, Glossary, GlossaryInfo, GlossaryMetadata},
-    utils::unescape_html,
+    utils::{parent_dir, unescape_html},
 };
 
 impl Reader for MdictFormat {
@@ -49,25 +49,23 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
 
     // TODO: abstract the file scanning from the readers
     let mut data_entries = Vec::new();
-    if let Some(parent) = path.parent() {
-        for entry in fs::read_dir(parent)? {
-            let entry = entry?;
-            let path = entry.path();
-            let extension = path.extension().and_then(|e| e.to_str());
-            let fname = path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
+    for entry in fs::read_dir(parent_dir(path))? {
+        let entry = entry?;
+        let path = entry.path();
+        let extension = path.extension().and_then(|e| e.to_str());
+        let fname = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
-            match extension {
-                Some("mdx") => (),
-                Some("css") => {
-                    let content = fs::read(path)?;
-                    data_entries.push(DataEntry::new(fname, content));
-                }
-                _ => tracing::warn!("Ignoring unsupported file: {fname}"),
+        match extension {
+            Some("mdx") => (),
+            Some("css") => {
+                let content = fs::read(path)?;
+                data_entries.push(DataEntry::new(fname, content));
             }
+            _ => tracing::warn!("Ignoring unsupported file: {fname}"),
         }
     }
 
