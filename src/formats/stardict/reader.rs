@@ -228,9 +228,6 @@ pub fn read_ifo_file(ifo_path: &Path) -> Result<GlossaryInfo> {
         info.insert(key, value.to_string());
     }
 
-    info.insert("sourceLang", "English".to_string());
-    info.insert("targetLang", "French".to_string());
-
     Ok(info)
 }
 
