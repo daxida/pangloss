@@ -115,7 +115,8 @@ impl Renderer for Node {
 
 impl Renderer for LineBreakNode {
     fn render(&self) -> String {
-        format!("<br>{}</br>", self.content.render())
+        // br is a void element, so we don't need to close it.
+        format!("<br>{}", self.content.render())
     }
 }
 
