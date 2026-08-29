@@ -8,7 +8,7 @@ use pangloss::{
     },
 };
 
-// TODO: the filename is needed because there is currently no strict connexion between format
+// TODO: the filename is needed because there is currently no strict connection between format
 // and extension.
 fn roundtrip<T: ReaderWriter>(rw: T, glossary: &Glossary, filename: &str) -> Result<Glossary> {
     let dir = tempfile::tempdir()?;
@@ -17,7 +17,7 @@ fn roundtrip<T: ReaderWriter>(rw: T, glossary: &Glossary, filename: &str) -> Res
     rw.read(&path)
 }
 
-// TODO: the filename is needed because there is currently no strict connexion between format
+// TODO: the filename is needed because there is currently no strict connection between format
 // and extension.
 fn mktest_roundtrip<T: ReaderWriter>(rw: T, filename: &str) {
     let entries = vec![Entry::new(

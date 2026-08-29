@@ -4,16 +4,10 @@
 //!
 //! [yomitan-dict-builder]: https://github.com/MarvNC/yomichan-dict-builder/blob/master/src/types/yomitan/termbank.ts
 
-#![allow(unused)]
-
 use std::fmt;
 
 use indexmap::IndexMap;
-use serde::{
-    Deserialize, Serialize, Serializer,
-    ser::{SerializeStruct, SerializeTuple},
-};
-use serde_json::Value;
+use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
 pub type TermBank = Vec<TermBankEntry>;
 
@@ -82,7 +76,7 @@ pub enum DetailedDefinition {
     Inflection(String, Vec<String>),
 }
 
-// Used in Definition convertions from Yomitan to text.
+// Used in Definition conversions from Yomitan to text.
 // WARN: temporary so we can work on it
 impl fmt::Display for DetailedDefinition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -93,7 +87,7 @@ impl fmt::Display for DetailedDefinition {
                 let json = serde_json::to_string(content).map_err(|_| fmt::Error)?;
                 write!(f, "{json}")
             }
-            Self::Image(image) => write!(f, "some image"),
+            Self::Image(_) => write!(f, "some image"),
             Self::Inflection(term, rules) => write!(f, "{term} ({})", rules.join(", ")),
         }
     }

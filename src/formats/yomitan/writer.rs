@@ -131,7 +131,7 @@ fn write_index(
         })
         .collect();
 
-    // The schema requirres "title", "revision" and one of ("version"|"format").
+    // The schema requires "title", "revision" and one of ("version"|"format").
     // We already guarantee title, let's add the rest if not present:
     info.entry("revision".to_string())
         .or_insert_with(|| Value::from("1"));

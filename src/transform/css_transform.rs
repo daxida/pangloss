@@ -1,4 +1,4 @@
-//! Css selector tranforms.
+//! Css selector transforms.
 //!
 //! This is needed to convert css files from Mdict/Stardict, and any format
 //! that uses html, to Yomitan's structured content.

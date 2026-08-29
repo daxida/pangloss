@@ -1,4 +1,4 @@
-//! Tests separatedly `index.json`, and the rest of `test_bank_x.json`
+//! Tests separately `index.json`, and the rest of `term_bank_x.json`
 
 use std::{fs::File, io::Read, path::Path};
 

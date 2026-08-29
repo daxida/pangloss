@@ -10,7 +10,7 @@ use crate::{
 
 pub use conversion::HtmlConverter;
 
-// Wrapping seems better than having definition as a different attrribute of Entry
+// Wrapping seems better than having definition as a different attribute of Entry
 // in order to force every caller to think about what they are adding/consuming to the glossary.
 //
 /// An [`Entry`](crate::Entry) definition.

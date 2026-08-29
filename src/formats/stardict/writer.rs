@@ -21,7 +21,7 @@ impl Writer for StardictFormat {
 
 fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<()> {
     if path.extension().and_then(|e| e.to_str()) != Some("ifo") {
-        bail!("Stardict reader expects a ifo file, got {}", path.display());
+        bail!("Stardict writer expects a ifo file, got {}", path.display());
     }
 
     let mut sts = SameTypeSequence::from_glossary(glossary);

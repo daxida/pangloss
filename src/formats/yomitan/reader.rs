@@ -60,7 +60,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     let term_meta_bank = read_term_meta_banks(&zip_contents.term_meta_banks)?;
     let tag_bank = read_tag_banks(&zip_contents.tag_banks)?;
 
-    if zip_contents.media.len() > 0 {
+    if !zip_contents.media.is_empty() {
         tracing::debug!("Found {} media files", zip_contents.media.len());
     }
     tracing::debug!("Found {} term meta bank entries", term_meta_bank.len());
@@ -183,7 +183,6 @@ fn parse_index_file(json: &[u8]) -> Result<GlossaryInfo> {
     Ok(info)
 }
 
-#[allow(unused)]
 fn read_term_bank(json: &[u8], entries: &mut Vec<Entry>, alt_map: &mut AltMap) -> Result<()> {
     // This can fail if our logic doesn't cover the full schema
     let term_bank: TermBank = serde_json::from_slice(json)?;

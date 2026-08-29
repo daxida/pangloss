@@ -146,8 +146,6 @@ impl ParsedHeader {
 }
 
 // https://github.com/daxida/MDictUtils/blob/master/src/MDictUtils/MDictHeader.cs
-//
-/// Returns (attributes, encoding)
 fn read_header<R: Read>(reader: &mut R) -> Result<ParsedHeader> {
     let header_text_size = read_u32_be(reader)? as usize;
     let mut raw = vec![0u8; header_text_size];
