@@ -98,10 +98,6 @@ fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result
         let term = entry.term();
         let anchor = make_anchor(term);
 
-        search_entries.push(format!(
-            r#"{{ term: {term:?}, page: "{file_index:05}.html", anchor: {anchor:?} }}"#
-        ));
-
         let text = format!(
             r#"<div class="entry" id="{anchor}"><div class="terms">{}</div><div class="defi">{}</div></div>
 "#,
@@ -113,6 +109,10 @@ fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result
             file_entries.push(Vec::new());
             current_size = 0;
         }
+
+        search_entries.push(format!(
+            r#"{{ term: {term:?}, page: "{file_index:05}.html", anchor: {anchor:?} }}"#
+        ));
         current_size += text.len();
         file_entries[file_index].push(text);
     }
