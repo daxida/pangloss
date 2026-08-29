@@ -60,8 +60,14 @@ fn write_with_context(
 fn write_header<W: Write>(writer: &mut W, info: &GlossaryInfo) -> Result<()> {
     let mut xml = String::from("<Dictionary ");
     for key in ATTR_ORDER {
-        let val = info.get(key).unwrap_or_else(|| default_attr(key));
-        let row = format!("{}=\"{}\" ", key, escape_html(val));
+        // These two describe the bytes we are about to write, not the ones the
+        // source dictionary held, and as of now, only UTF-8 plain is supported.
+        let val = match key {
+            "Encoding" => "UTF-8",
+            "Encrypted" => "No",
+            _ => info.get(key).unwrap_or_else(|| default_attr(key)),
+        };
+        let row = format!("{key}=\"{}\" ", escape_html(val));
         xml.push_str(&row);
     }
     xml.push_str("/>\r\n\0");
