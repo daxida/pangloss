@@ -298,12 +298,45 @@ fn extract_styles(value: &Element) -> Option<NodeStyle> {
 mod tests {
     use super::*;
 
+    fn tag_of(html: &str) -> NTag {
+        match html_to_node(html) {
+            Node::Generic(g) => g.tag,
+            other => panic!("expected Generic for {html}, got {other:?}"),
+        }
+    }
+
     #[test]
     fn span_maps_to_span() {
-        let node = html_to_node("<span>word</span>");
-        match node {
-            Node::Generic(g) => assert_eq!(g.tag, NTag::Span),
-            other => panic!("expected Generic(Span), got {other:?}"),
+        assert_eq!(tag_of("<span>word</span>"), NTag::Span);
+    }
+
+    // Inline html must not become block-level structured content: a div here
+    // puts every bold/italic run on its own line in Yomitan.
+    // https://github.com/daxida/pangloss/issues/2
+    #[test]
+    fn inline_elements_stay_inline() {
+        for html in [
+            "<b>word</b>",
+            "<strong>word</strong>",
+            "<i>word</i>",
+            "<em>word</em>",
+            "<small>word</small>",
+            r#"<font color="red">word</font>"#,
+        ] {
+            assert_eq!(tag_of(html), NTag::Span, "{html} should map to a span");
+        }
+    }
+
+    #[test]
+    fn block_elements_stay_block() {
+        for html in [
+            "<div>word</div>",
+            "<p>word</p>",
+            "<section>word</section>",
+            "<h1>word</h1>",
+            "<h6>word</h6>",
+        ] {
+            assert_eq!(tag_of(html), NTag::Div, "{html} should map to a div");
         }
     }
 }
