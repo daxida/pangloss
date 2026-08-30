@@ -77,16 +77,15 @@ impl Writer for TextFormat {
     }
 }
 
+fn escape_newlines(s: &str) -> String {
+    s.replace("\r\n", "\\n").replace(['\n', '\r'], "\\n")
+}
+
 fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<()> {
     let mut lines = Vec::new();
 
     for (key, value) in &glossary.info {
-        let clean_value = if key == "description" {
-            value.replace('\n', "\\n")
-        } else {
-            value.clone()
-        };
-        lines.push(format!("##{key}\t{clean_value}"));
+        lines.push(format!("##{key}\t{}", escape_newlines(value)));
     }
 
     let alt_map = &glossary.alt_map;
@@ -94,7 +93,7 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
         lines.push(format!(
             "{}\t{}",
             entry.s_terms(alt_map),
-            entry.definition().to_text()
+            escape_newlines(&entry.definition().to_text())
         ));
     }
 
