@@ -141,6 +141,21 @@ fn write_ifo_file(
         ifo_dict.insert("synwordcount", syn_word_count.to_string());
     }
 
+    // The optional keys stardict defines.
+    // https://github.com/ilius/pyglossary/blob/master/pyglossary/plugins/stardict/writer.py
+    for (ifo_key, info_key) in [
+        ("author", "author"),
+        ("email", "email"),
+        ("website", "website"),
+        ("date", "creationTime"),
+    ] {
+        if let Some(value) = glossary.info.get(info_key)
+            && !value.is_empty()
+        {
+            ifo_dict.insert(ifo_key, value.replace('\n', " "));
+        }
+    }
+
     if let Some(desc) = glossary.info.get("description")
         && !desc.is_empty()
     {

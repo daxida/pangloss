@@ -45,17 +45,12 @@ fn do_undo_syns() {
     ));
 }
 
-// TODO: below
-// The .dict, .idx and .syn all round-trip byte for byte now. What still differs
-// is the .ifo: write_ifo_file emits a fixed set of keys, so this fixture's
-// `website=` line is dropped. Nothing to do with synonyms.
-//
-// #[test]
-// fn do_undo_syns_long() {
-//     do_undo(Path::new(
-//         "tests/fixtures/formats/stardict/03-syns-100/100-ja-en.ifo",
-//     ));
-// }
+#[test]
+fn do_undo_syns_long() {
+    do_undo(Path::new(
+        "tests/fixtures/formats/stardict/03-syns-100/100-ja-en.ifo",
+    ));
+}
 
 #[test]
 fn do_undo_bar() {
