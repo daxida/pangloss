@@ -34,12 +34,14 @@ impl GlossaryInfo {
         self.inner.insert(info_keys::normalize_key(key), value)
     }
 
-    // Modify a value only if the key exists
+    /// Modify a value only if its normalized key is already present.
     pub fn update(&mut self, key: &str, value: String) -> bool {
-        self.inner.get_mut(key).is_some_and(|v| {
-            *v = value;
-            true
-        })
+        self.inner
+            .get_mut(&info_keys::normalize_key(key))
+            .is_some_and(|v| {
+                *v = value;
+                true
+            })
     }
 
     /// By invariant, this never panics

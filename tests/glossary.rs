@@ -30,3 +30,13 @@ fn glossary_info() {
     assert_eq!(info.len(), 3);
     assert_eq!(info.get("sourceLanguage"), Some("en"));
 }
+
+#[test]
+fn update_normalizes_its_key() {
+    let mut info = GlossaryInfo::new();
+    let _ = info.insert("bookname", "old".to_string());
+
+    assert!(info.update("Book Name", "new".to_string()));
+    assert_eq!(info.get("title"), Some("new"));
+    assert_eq!(info.len(), 1);
+}
