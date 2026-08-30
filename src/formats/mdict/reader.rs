@@ -111,7 +111,7 @@ fn build_entries(keys: Vec<String>, values: Vec<String>) -> Vec<Entry> {
         // WARN: A redirect names a term, not an entry. When a headword repeats, the
         // format cannot say which one it means, so the first takes the alts:
         // removing them from the map leaves the later ones with none.
-        // 
+        //
         // Maybe we should trim term since we do the same in links_map
         let alts = links_map
             .remove(term.as_str())
