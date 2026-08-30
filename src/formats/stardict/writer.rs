@@ -49,7 +49,6 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
 
 pub fn write_compact(sts: SameTypeSequence, path: &Path, glossary: &Glossary) -> Result<()> {
     let mut alt_index_list: Vec<(Vec<u8>, usize)> = Vec::new();
-    let alt_map = &glossary.alt_map;
 
     let dict_path = path.with_extension("dict");
     let idx_path = path.with_extension("idx");
@@ -71,7 +70,7 @@ pub fn write_compact(sts: SameTypeSequence, path: &Path, glossary: &Glossary) ->
 
     for entry in order.into_iter().map(|i| &glossary.entries[i]) {
         let b_term = entry.b_term();
-        for b_alt in entry.b_alts(alt_map) {
+        for b_alt in entry.b_alts() {
             alt_index_list.push((b_alt, entry_idx));
         }
 

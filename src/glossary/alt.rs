@@ -1,20 +1,18 @@
-//! Map from term to alts, with possibly extra information of the relation.
+//! An alternative form of an entry's headword.
 //!
-//! Compare to pyglossary, which stores alts directly on the Entry. Their
-//! approach is fundamentally lossy, and can only work with simple term/alts
-//! pair. It can not deal with formats like Yomitan that contain extra information
-//! about the pair (i.e. the causal chain).
+//! Alts live on the [`Entry`](crate::Entry) itself, positionally, the way
+//! stardict keys its .syn records by entry index. Keying them by term instead
+//! cannot tell two entries sharing a headword apart, and they leak between them.
 //!
-//! Does not reuse the [`crate::Entry`] type since, here, we expect MOST of
+//! Unlike pyglossary, which stores alts as bare strings, an alt can carry a
+//! definition: formats like Yomitan hold extra information about the relation
+//! (the causal chain) that a plain alias would lose.
+//!
+//! Does not reuse the [`Entry`](crate::Entry) type since, here, we expect MOST of
 //! the definitions to be None (i.e. the most common case is a simple term/alts pair),
 //! while an Entry without definition is a pathological case.
 
-use indexmap::IndexMap;
-
 use crate::glossary::Definition;
-
-// IndexMap for reproducibility, not really needed
-pub type AltMap = IndexMap<String, Vec<AltEntry>>;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct AltEntry {

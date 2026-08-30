@@ -53,10 +53,18 @@ fn extract(path: &Path) -> ZipContents {
     }
 }
 
+fn sort_rows(value: &mut Value) {
+    if let Value::Array(rows) = value {
+        rows.sort_by_key(ToString::to_string);
+    }
+}
+
 // Compare as json: we don't care about formatting/order of entries
 fn assert_json_eq(expected: &str, received: &str, name: &str) {
-    let expected: Value = serde_json::from_str(expected).unwrap();
-    let received: Value = serde_json::from_str(received).unwrap();
+    let mut expected: Value = serde_json::from_str(expected).unwrap();
+    let mut received: Value = serde_json::from_str(received).unwrap();
+    sort_rows(&mut expected);
+    sort_rows(&mut received);
     if expected != received {
         let expected_pretty = serde_json::to_string_pretty(&expected).unwrap();
         let received_pretty = serde_json::to_string_pretty(&received).unwrap();

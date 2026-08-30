@@ -14,7 +14,7 @@ use anyhow::{Result, bail};
 
 use crate::{
     Context, Reader, Writer,
-    glossary::{AltEntry, AltMap, Definition, Entry, Glossary, GlossaryInfo, TERM_SEPARATOR},
+    glossary::{AltEntry, Definition, Entry, Glossary, GlossaryInfo, TERM_SEPARATOR},
 };
 
 pub struct TextFormat;
@@ -38,8 +38,6 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
 
     let mut info = GlossaryInfo::new();
     let mut entries = Vec::new();
-    // TODO: extract alts!!!
-    let mut alt_map = AltMap::new();
 
     for line in reader.lines() {
         let line = line?;
@@ -59,16 +57,12 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
             let alts: Vec<_> = parts
                 .map(|alt| AltEntry::only_term(alt.to_string()))
                 .collect();
-            entries.push(Entry::new(term.clone(), Definition::from_raw_text(value)));
-            if !alts.is_empty() {
-                alt_map.entry(term).or_insert(alts);
-            }
+            entries.push(Entry::new(term, Definition::from_raw_text(value)).with_alts(alts));
         }
     }
 
     Ok(Glossary {
         entries,
-        alt_map,
         info,
         ..Default::default()
     })
@@ -91,11 +85,10 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
         lines.push(format!("##{key}\t{}", escape_newlines(value)));
     }
 
-    let alt_map = &glossary.alt_map;
     for entry in &glossary.entries {
         lines.push(format!(
             "{}\t{}",
-            entry.s_terms(alt_map),
+            entry.s_terms(),
             escape_newlines(&entry.definition().to_text())
         ));
     }

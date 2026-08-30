@@ -69,7 +69,6 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
 
 fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result<()> {
     let HtmlInfo { title, .. } = html_info;
-    let alt_map = &glossary.alt_map;
 
     let mut css_links = String::new();
     for data_entry in glossary.css_files() {
@@ -89,7 +88,7 @@ fn write_pages(path: &Path, glossary: &Glossary, html_info: &HtmlInfo) -> Result
     let converter = HtmlConverter::new(glossary);
 
     for entry in &glossary.entries {
-        let raw_terms = entry.s_terms(alt_map);
+        let raw_terms = entry.s_terms();
         // Convert "term|syn1|syn2" into "term | syn1 | syn2"
         let terms = raw_terms
             .split(TERM_SEPARATOR)

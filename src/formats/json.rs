@@ -65,17 +65,13 @@ impl Writer for JsonFormat {
 
 fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<()> {
     let mut doc: IndexMap<String, Value> = IndexMap::new();
-    let alt_map = &glossary.alt_map;
 
     for (key, value) in &glossary.info {
         doc.insert(format!("##{key}"), Value::String(value.clone()));
     }
 
     for entry in &glossary.entries {
-        doc.insert(
-            entry.s_terms(alt_map),
-            Value::String(entry.definition().to_text()),
-        );
+        doc.insert(entry.s_terms(), Value::String(entry.definition().to_text()));
     }
 
     let mut output = serde_json::to_string_pretty(&doc)?;

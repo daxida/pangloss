@@ -45,11 +45,11 @@ fn do_undo_syns() {
     ));
 }
 
+// TODO: below
+// The .dict, .idx and .syn all round-trip byte for byte now. What still differs
+// is the .ifo: write_ifo_file emits a fixed set of keys, so this fixture's
+// `website=` line is dropped. Nothing to do with synonyms.
 //
-// These two test fail because of synonym differences that I'm not entirely
-// sure matter, nor can I see the reason of the divergence with pyglossary.
-//
-
 // #[test]
 // fn do_undo_syns_long() {
 //     do_undo(Path::new(
@@ -57,12 +57,12 @@ fn do_undo_syns() {
 //     ));
 // }
 
-// #[test]
-// fn do_undo_bar() {
-//     do_undo(Path::new(
-//         "tests/fixtures/formats/stardict/04-syns-bar/bar.ifo",
-//     ));
-// }
+#[test]
+fn do_undo_bar() {
+    do_undo(Path::new(
+        "tests/fixtures/formats/stardict/04-syns-bar/bar.ifo",
+    ));
+}
 
 #[test]
 fn test_idx_entries_written_in_sorted_order() {

@@ -7,7 +7,7 @@ use regex::Regex;
 use crate::{
     Definition,
     formats::mdict::StyleSheet,
-    glossary::{AltMap, Entry, Glossary},
+    glossary::{Entry, Glossary},
 };
 
 pub trait EntryTransform {
@@ -71,32 +71,33 @@ impl fmt::Display for EntryTransformer<'_> {
     }
 }
 
-pub struct PreventDuplicateTerms<'a> {
-    alt_map: &'a AltMap,
+#[derive(Default)]
+pub struct PreventDuplicateTerms {
     seen: RefCell<HashSet<String>>,
 }
 
-impl<'a> PreventDuplicateTerms<'a> {
-    pub fn new(alt_map: &'a AltMap) -> Self {
-        Self {
-            alt_map,
-            seen: RefCell::new(HashSet::new()),
-        }
+impl PreventDuplicateTerms {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
-impl EntryTransform for PreventDuplicateTerms<'_> {
+impl EntryTransform for PreventDuplicateTerms {
     fn apply(&self, entry: &mut Entry) {
-        let term = entry.s_terms(self.alt_map);
         let mut seen = self.seen.borrow_mut();
-        if seen.insert(term.clone()) {
+        if seen.insert(entry.s_terms()) {
             return;
         }
+        let term = entry.term().to_string();
         let mut n = 2;
-        while !seen.insert(format!("{term} ({n})")) {
+        loop {
+            *entry.term_mut() = format!("{term} ({n})");
+            if seen.insert(entry.s_terms()) {
+                return;
+            }
             n += 1;
         }
-        *entry.term_mut() = format!("{term} ({n})");
     }
 }
 

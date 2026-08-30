@@ -6,7 +6,7 @@ pub use data_entry::DataEntry;
 
 mod conversion;
 
-use crate::glossary::{AltEntry, AltMap};
+use crate::glossary::AltEntry;
 
 pub const TERM_SEPARATOR: char = '|';
 
@@ -25,17 +25,23 @@ pub const TERM_SEPARATOR: char = '|';
 pub struct Entry {
     term: String,
     definition: Definition,
+    alts: Vec<AltEntry>,
 }
 
 impl Entry {
     pub const fn new(term: String, definition: Definition) -> Self {
-        Self { term, definition }
+        Self {
+            term,
+            definition,
+            alts: Vec::new(),
+        }
     }
 
     pub const fn with_html(term: String, definition: String) -> Self {
         Self {
             term,
             definition: Definition::Html(definition),
+            alts: Vec::new(),
         }
     }
 
@@ -55,25 +61,24 @@ impl Entry {
         &mut self.definition
     }
 
-    fn alts(&self, alt_map: &AltMap) -> Option<Vec<AltEntry>> {
-        alt_map.get(&self.term).cloned()
+    pub fn alts(&self) -> &[AltEntry] {
+        &self.alts
+    }
+
+    pub const fn alts_mut(&mut self) -> &mut Vec<AltEntry> {
+        &mut self.alts
     }
 
     // [L]ist terms and [S]tring terms
     // https://github.com/ilius/pyglossary/blob/master/pyglossary/entry.py#L266
-    fn l_terms(&self, alt_map: &AltMap) -> Vec<String> {
+    fn l_terms(&self) -> Vec<String> {
         std::iter::once(self.term.clone())
-            .chain(
-                self.alts(alt_map)
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|alt| alt.term().to_string()),
-            )
+            .chain(self.alts.iter().map(|alt| alt.term().to_string()))
             .collect()
     }
 
-    pub fn s_terms(&self, alt_map: &AltMap) -> String {
-        self.l_terms(alt_map).join(&TERM_SEPARATOR.to_string())
+    pub fn s_terms(&self) -> String {
+        self.l_terms().join(&TERM_SEPARATOR.to_string())
     }
 
     // Binary methods
@@ -81,10 +86,9 @@ impl Entry {
         self.term.as_bytes()
     }
 
-    pub fn b_alts(&self, alt_map: &AltMap) -> Vec<Vec<u8>> {
-        self.alts(alt_map)
-            .unwrap_or_default()
-            .into_iter()
+    pub fn b_alts(&self) -> Vec<Vec<u8>> {
+        self.alts
+            .iter()
             .map(|alt| alt.term().as_bytes().to_vec())
             .collect()
     }
@@ -96,5 +100,9 @@ impl Entry {
 
     pub fn with_definition(self, definition: Definition) -> Self {
         Self { definition, ..self }
+    }
+
+    pub fn with_alts(self, alts: Vec<AltEntry>) -> Self {
+        Self { alts, ..self }
     }
 }

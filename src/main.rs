@@ -205,7 +205,7 @@ fn pre_write(glossary: &mut Glossary, args: &Cli) {
     }
 
     if wformat == WriterFormat::Json {
-        builder = builder.with(PreventDuplicateTerms::new(&glossary.alt_map));
+        builder = builder.with(PreventDuplicateTerms::new());
     }
 
     let transformer = builder.build();

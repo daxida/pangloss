@@ -17,7 +17,7 @@ use crate::{
     formats::mdict::{
         COMPRESSION_HEADER_0, COMPRESSION_HEADER_2, Encoding, EncryptionKind, MdictFormat,
     },
-    glossary::{AltEntry, AltMap, Entry, Glossary, GlossaryInfo, GlossaryMetadata},
+    glossary::{AltEntry, Entry, Glossary, GlossaryInfo, GlossaryMetadata},
     utils::{parent_dir, unescape_html},
 };
 
@@ -72,19 +72,18 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     let keys = read_keys(&mut reader, encoding, encryption)?;
     let values = read_values(&mut reader, &keys, encoding)?;
 
-    let (entries, alt_map) = build_entries(keys, values);
+    let entries = build_entries(keys, values);
 
     Ok(Glossary {
         entries,
         data_entries,
-        alt_map,
         info,
         metadata,
     })
 }
 
 /// Split the key/value pairs into entries and their alts.
-fn build_entries(keys: Vec<String>, values: Vec<String>) -> (Vec<Entry>, AltMap) {
+fn build_entries(keys: Vec<String>, values: Vec<String>) -> Vec<Entry> {
     // First pass: collect @@@LINK redirects.
     // links_map: headword -> Vec<alt_term>
     let mut links_map: HashMap<String, Vec<String>> = HashMap::new();
@@ -104,22 +103,24 @@ fn build_entries(keys: Vec<String>, values: Vec<String>) -> (Vec<Entry>, AltMap)
 
     // Second pass: build entries, skip @@@LINK entries
     let mut entries = Vec::new();
-    let mut alt_map = AltMap::new();
     for (term, definition) in keys.into_iter().zip(values) {
         // WARN: this breaks the roundtrip invariant
         if definition.starts_with("@@@LINK=") {
             continue;
         }
+        // WARN: A redirect names a term, not an entry. When a headword repeats, the
+        // format cannot say which one it means, so the first takes the alts:
+        // removing them from the map leaves the later ones with none.
+        // 
         // Maybe we should trim term since we do the same in links_map
-        if let Some(alts) = links_map.get(term.as_str()) {
-            alt_map
-                .entry(term.clone())
-                .or_insert_with(|| alts.iter().cloned().map(AltEntry::only_term).collect());
-        }
-        entries.push(Entry::with_html(term, definition));
+        let alts = links_map
+            .remove(term.as_str())
+            .map(|alts| alts.into_iter().map(AltEntry::only_term).collect())
+            .unwrap_or_default();
+        entries.push(Entry::with_html(term, definition).with_alts(alts));
     }
 
-    (entries, alt_map)
+    entries
 }
 
 struct ParsedHeader {

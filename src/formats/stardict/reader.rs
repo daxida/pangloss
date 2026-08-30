@@ -10,7 +10,7 @@ use anyhow::{Result, bail};
 use crate::{
     Context, DataEntry, Reader,
     formats::stardict::{StardictFormat, sts::SameTypeSequence},
-    glossary::{AltEntry, AltMap, Entry, Glossary, GlossaryInfo},
+    glossary::{AltEntry, Entry, Glossary, GlossaryInfo},
     utils::parent_dir,
 };
 
@@ -68,7 +68,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         HashMap::new()
     };
 
-    let (entries, alt_map) = read_entries(sts, &idx, &syn, &dict_path)?;
+    let entries = read_entries(sts, &idx, &syn, &dict_path)?;
 
     // Can there be more than one?
     let mut data_entries = Vec::new();
@@ -82,7 +82,6 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     Ok(Glossary {
         entries,
         data_entries,
-        alt_map,
         info,
         ..Default::default()
     })
@@ -93,10 +92,9 @@ fn read_entries(
     index_data: &[(Vec<u8>, u64, u32)],
     syn_dict: &HashMap<usize, Vec<String>>,
     dict_path: &Path,
-) -> Result<(Vec<Entry>, AltMap)> {
+) -> Result<Vec<Entry>> {
     let dict_bytes = read_possibly_compressed(dict_path)?;
     let mut entries = Vec::new();
-    let mut alt_map = AltMap::new();
 
     for (entry_index, (b_term, defi_offset, defi_size)) in index_data.iter().enumerate() {
         if b_term.is_empty() {
@@ -116,15 +114,14 @@ fn read_entries(
 
         let defi = String::from_utf8_lossy(&dict_bytes[offset..offset + size]).into_owned();
         let term = String::from_utf8_lossy(b_term).into_owned();
-        entries.push(Entry::new(term.clone(), sts.as_definition(defi)));
-        // if there's no syn dict...
-        if let Some(alts) = syn_dict.get(&entry_index).cloned() {
-            let alts_entries: Vec<AltEntry> = alts.into_iter().map(AltEntry::only_term).collect();
-            alt_map.insert(term, alts_entries);
-        }
+        let alts = syn_dict
+            .get(&entry_index)
+            .map(|alts| alts.iter().cloned().map(AltEntry::only_term).collect())
+            .unwrap_or_default();
+        entries.push(Entry::new(term, sts.as_definition(defi)).with_alts(alts));
     }
 
-    Ok((entries, alt_map))
+    Ok(entries)
 }
 
 fn read_syn_file(syn_path: &Path, entry_count: usize) -> Result<HashMap<usize, Vec<String>>> {

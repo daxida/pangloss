@@ -1,8 +1,8 @@
 mod entry;
 pub use entry::{DataEntry, Definition, Entry, HtmlConverter, TERM_SEPARATOR};
 
-mod alt_map;
-pub use alt_map::{AltEntry, AltMap};
+mod alt;
+pub use alt::AltEntry;
 
 mod glossary_info;
 pub use glossary_info::GlossaryInfo;
@@ -17,7 +17,6 @@ pub use metadata::GlossaryMetadata;
 pub struct Glossary {
     pub entries: Vec<Entry>,
     pub data_entries: Vec<DataEntry>,
-    pub alt_map: AltMap,
     pub info: GlossaryInfo,
     pub metadata: GlossaryMetadata,
 }
@@ -32,7 +31,7 @@ impl Glossary {
             "Found {} entries, {} data_entries, and {} alts",
             self.entries.len(),
             self.data_entries.len(),
-            self.alt_map.values().map(Vec::len).sum::<usize>()
+            self.entries.iter().map(|e| e.alts().len()).sum::<usize>()
         );
     }
 }

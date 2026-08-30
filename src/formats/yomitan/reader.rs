@@ -1,6 +1,6 @@
 //! Reader for [Yomitan](https://github.com/yomidevs/yomitan) dictionary archives.
 
-use std::{fs::File, io::Read, path::Path, sync::LazyLock};
+use std::{collections::HashMap, fs::File, io::Read, path::Path, sync::LazyLock};
 
 use anyhow::{Context as _, Result, bail};
 use indexmap::IndexMap;
@@ -13,11 +13,9 @@ use crate::{
     Context, Reader,
     formats::yomitan::{
         YomitanFormat,
-        model::{TagBank, TermBank, TermMetaBank, YomitanDefinition},
+        model::{TagBank, TermBank, TermBankEntry, TermMetaBank, YomitanDefinition},
     },
-    glossary::{
-        AltEntry, AltMap, DataEntry, Definition, Entry, Glossary, GlossaryInfo, GlossaryMetadata,
-    },
+    glossary::{AltEntry, DataEntry, Definition, Entry, Glossary, GlossaryInfo, GlossaryMetadata},
 };
 
 static TERM_BANK_RE: LazyLock<Regex> =
@@ -56,7 +54,8 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     let zip_contents = collect_zip_contents(&mut zip)?;
     let info = parse_index_file(&zip_contents.index)?;
 
-    let (mut entries, alt_map) = read_term_banks(&zip_contents.term_banks)?;
+    let (mut entries, inflections) = read_term_banks(&zip_contents.term_banks)?;
+    attach_inflections(&mut entries, inflections);
     let term_meta_bank = read_term_meta_banks(&zip_contents.term_meta_banks)?;
     let tag_bank = read_tag_banks(&zip_contents.tag_banks)?;
 
@@ -87,7 +86,6 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     Ok(Glossary {
         entries,
         data_entries,
-        alt_map,
         info,
         metadata,
     })
@@ -183,7 +181,14 @@ fn parse_index_file(json: &[u8]) -> Result<GlossaryInfo> {
     Ok(info)
 }
 
-fn read_term_bank(json: &[u8], entries: &mut Vec<Entry>, alt_map: &mut AltMap) -> Result<()> {
+/// An inflection and the term it inflects from, before it finds its entry.
+type Inflections = Vec<(String, TermBankEntry)>;
+
+fn read_term_bank(
+    json: &[u8],
+    entries: &mut Vec<Entry>,
+    inflections: &mut Inflections,
+) -> Result<()> {
     // This can fail if our logic doesn't cover the full schema
     let term_bank: TermBank = serde_json::from_slice(json)?;
 
@@ -191,13 +196,7 @@ fn read_term_bank(json: &[u8], entries: &mut Vec<Entry>, alt_map: &mut AltMap) -
     // not matter for the dictionary but it makes testing harder.
     for term_bank_entry in term_bank {
         if let Some(source) = term_bank_entry.inflection_source() {
-            alt_map
-                .entry(source.to_string())
-                .or_default()
-                .push(AltEntry::new(
-                    term_bank_entry.term.clone(),
-                    Definition::Yomitan(YomitanDefinition::TermBankEntry(term_bank_entry)),
-                ));
+            inflections.push((source.to_string(), term_bank_entry));
         } else {
             entries.push(Entry::new(
                 term_bank_entry.term.clone(),
@@ -209,25 +208,55 @@ fn read_term_bank(json: &[u8], entries: &mut Vec<Entry>, alt_map: &mut AltMap) -
     Ok(())
 }
 
-fn read_term_banks(term_banks: &[(String, Vec<u8>)]) -> Result<(Vec<Entry>, AltMap)> {
+/// Hand every inflection to the entry it inflects from.
+///
+/// The entry's own term is the *inflected* form; the term it inflects from is
+/// inside the definition. A headword can appear on more than one entry and the
+/// format cannot say which is meant, so the first one takes them.
+fn attach_inflections(entries: &mut Vec<Entry>, inflections: Inflections) {
+    // Resolve every source to an index first
+    let targets: Vec<Option<usize>> = {
+        let mut first_by_term: HashMap<&str, usize> = HashMap::new();
+        for (index, entry) in entries.iter().enumerate() {
+            first_by_term.entry(entry.term()).or_insert(index);
+        }
+        inflections
+            .iter()
+            .map(|(source, _)| first_by_term.get(source.as_str()).copied())
+            .collect()
+    };
+
+    let mut orphans = Vec::new();
+    for (target, (_, term_bank_entry)) in targets.into_iter().zip(inflections) {
+        let term = term_bank_entry.term.clone();
+        let definition = Definition::Yomitan(YomitanDefinition::TermBankEntry(term_bank_entry));
+        match target {
+            Some(index) => entries[index]
+                .alts_mut()
+                .push(AltEntry::new(term, definition)),
+            None => orphans.push(Entry::new(term, definition)),
+        }
+    }
+    entries.extend(orphans);
+}
+
+fn read_term_banks(term_banks: &[(String, Vec<u8>)]) -> Result<(Vec<Entry>, Inflections)> {
     Ok(term_banks
         .par_iter()
         .map(|(_, bytes)| {
             let mut entries = Vec::new();
-            let mut alt_map = AltMap::new();
-            read_term_bank(bytes, &mut entries, &mut alt_map)?;
-            Ok((entries, alt_map))
+            let mut inflections = Inflections::new();
+            read_term_bank(bytes, &mut entries, &mut inflections)?;
+            Ok((entries, inflections))
         })
         .collect::<Result<Vec<_>>>()?
         .into_iter()
         .fold(
-            (Vec::new(), AltMap::new()),
-            |(mut entries, mut alt_map), (e, a)| {
+            (Vec::new(), Inflections::new()),
+            |(mut entries, mut inflections), (e, i)| {
                 entries.extend(e);
-                for (term, alts) in a {
-                    alt_map.entry(term).or_default().extend(alts);
-                }
-                (entries, alt_map)
+                inflections.extend(i);
+                (entries, inflections)
             },
         ))
 }
@@ -265,10 +294,10 @@ mod tests {
     //
     //   ["nieves", ..., [["nieve", ["plural"]]], ...]
     //     ^^^^^^                    the inflected form, as the entry's own term
-    //                ^^^^^          the term it inflects from, inside the definition
+    //                      ^^^^^    the term it inflects from, inside the definition
     //
-    // so the alt_map has to be keyed "nieve" -> ["nieves"], not the other way
-    // round, or the alt never reaches the entry it belongs to.
+    // so the alt has to land on the "nieve" entry, not on a "nieves" one, or it
+    // never reaches the entry it belongs to.
     const BANK: &str = r#"[
         ["nieve",  "", "", "",  0, ["snow"],                0, ""],
         ["nieves", "", "", "n", 0, [["nieve", ["plural"]]], 0, ""]
@@ -277,18 +306,18 @@ mod tests {
     #[test]
     fn an_inflection_is_filed_under_the_term_it_inflects_from() {
         let mut entries = Vec::new();
-        let mut alt_map = AltMap::new();
-        read_term_bank(BANK.as_bytes(), &mut entries, &mut alt_map).unwrap();
+        let mut inflections = Inflections::new();
+        read_term_bank(BANK.as_bytes(), &mut entries, &mut inflections).unwrap();
+        attach_inflections(&mut entries, inflections);
 
         // Only the lemma is an entry; the inflection became one of its alts.
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].term(), "nieve");
 
-        let alts: Vec<_> = alt_map["nieve"].iter().map(AltEntry::term).collect();
+        let alts: Vec<_> = entries[0].alts().iter().map(AltEntry::term).collect();
         assert_eq!(alts, ["nieves"]);
-        assert!(!alt_map.contains_key("nieves"));
 
         // Which is the whole point: the alt comes back out of its entry.
-        assert_eq!(entries[0].s_terms(&alt_map), "nieve|nieves");
+        assert_eq!(entries[0].s_terms(), "nieve|nieves");
     }
 }
