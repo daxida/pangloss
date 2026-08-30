@@ -55,7 +55,7 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
 
     // Prelude only creates the parents.
     tracing::debug!("Creating path: {}", path.display());
-    let _ = fs::create_dir_all(path);
+    fs::create_dir_all(path)?;
 
     let title = glossary.info.get("title").unwrap_or("Glossary");
     let description = glossary.info.get("description").unwrap_or_default();
