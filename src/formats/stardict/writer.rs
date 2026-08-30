@@ -11,6 +11,7 @@ use crate::{
     Context, Writer,
     formats::stardict::{StardictFormat, sts::SameTypeSequence},
     glossary::{Glossary, HtmlConverter},
+    utils::parent_dir,
 };
 
 impl Writer for StardictFormat {
@@ -21,7 +22,10 @@ impl Writer for StardictFormat {
 
 fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<()> {
     if path.extension().and_then(|e| e.to_str()) != Some("ifo") {
-        bail!("Stardict writer expects a ifo file, got {}", path.display());
+        bail!(
+            "Expected a file with .ifo extension but got {}",
+            path.display()
+        );
     }
 
     let mut sts = SameTypeSequence::from_glossary(glossary);
@@ -34,9 +38,7 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
     write_compact(sts, path, glossary)?;
 
     if !glossary.data_entries.is_empty() {
-        // SAFETY: There should always be a parent by main.rs logic.
-        let parent = path.parent().unwrap();
-        let opath = parent.join("res"); // stardict convention
+        let opath = parent_dir(path).join("res"); // stardict convention
         fs::create_dir_all(&opath)?;
         for data_entry in &glossary.data_entries {
             let fname = opath.join(data_entry.fname());

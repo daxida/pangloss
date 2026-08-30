@@ -16,7 +16,7 @@ use crate::{
         default_attr,
     },
     glossary::{Glossary, GlossaryInfo, HtmlConverter},
-    utils::escape_html,
+    utils::{escape_html, parent_dir},
 };
 
 impl Writer for MdictFormat {
@@ -44,9 +44,7 @@ fn write_with_context(
     write_record_blocks(&mut writer, &pairs, compression)?;
 
     if !glossary.data_entries.is_empty() {
-        // SAFETY: There should always be a parent by main.rs logic.
-        let parent = path.parent().unwrap();
-        let opath = parent; // mdict convention: same folder
+        let opath = parent_dir(path); // mdict convention: same folder
         let _ = fs::create_dir(opath);
         for data_entry in glossary.css_files() {
             let fname = opath.join(data_entry.fname());

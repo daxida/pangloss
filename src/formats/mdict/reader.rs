@@ -29,7 +29,10 @@ impl Reader for MdictFormat {
 
 fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     if path.extension().and_then(|e| e.to_str()) != Some("mdx") {
-        bail!("MdictReader expects a .mdx file, got {}", path.display());
+        bail!(
+            "Expected a file with .mdx extension but got {}",
+            path.display()
+        );
     }
 
     let file = fs::File::open(path)?;

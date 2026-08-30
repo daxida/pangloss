@@ -26,7 +26,7 @@ pub enum Encoding {
 }
 
 impl Encoding {
-    pub const fn char_size(&self) -> usize {
+    pub const fn char_size(self) -> usize {
         match self {
             Self::Utf8 => 1,
             Self::Utf16 => 2,

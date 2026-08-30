@@ -42,7 +42,10 @@ impl Reader for StardictFormat {
 
 fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     if path.extension().and_then(|e| e.to_str()) != Some("ifo") {
-        bail!("Stardict reader expects a ifo file, got {}", path.display());
+        bail!(
+            "Expected a file with .ifo extension but got {}",
+            path.display()
+        );
     }
     let parent = parent_dir(path);
 
