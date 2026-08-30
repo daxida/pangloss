@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs,
     io::{BufWriter, Write},
     path::Path,
@@ -95,11 +96,14 @@ fn collect_pairs(glossary: &Glossary) -> Pairs {
     let mut pairs: Vec<_> = Vec::new();
     let converter = HtmlConverter::new(glossary);
 
+    let mut linked: HashSet<&str> = HashSet::new();
     for entry in &glossary.entries {
         let term = entry.term().to_string();
         let defi = converter.convert(entry.definition());
         // Alts become @@@LINK entries
-        if let Some(alts) = glossary.alt_map.get(&term) {
+        if linked.insert(entry.term())
+            && let Some(alts) = glossary.alt_map.get(&term)
+        {
             for alt in alts {
                 pairs.push((alt.term().to_string(), format!("@@@LINK={term}")));
             }

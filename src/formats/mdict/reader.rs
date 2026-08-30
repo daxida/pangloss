@@ -112,12 +112,9 @@ fn build_entries(keys: Vec<String>, values: Vec<String>) -> (Vec<Entry>, AltMap)
         }
         // Maybe we should trim term since we do the same in links_map
         if let Some(alts) = links_map.get(term.as_str()) {
-            for alt in alts {
-                alt_map
-                    .entry(term.clone())
-                    .or_default()
-                    .push(AltEntry::only_term(alt.clone()));
-            }
+            alt_map
+                .entry(term.clone())
+                .or_insert_with(|| alts.iter().cloned().map(AltEntry::only_term).collect());
         }
         entries.push(Entry::with_html(term, definition));
     }

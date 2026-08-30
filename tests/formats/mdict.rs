@@ -68,3 +68,11 @@ fn do_undo_one_entry1() {
         CompressionKind::Zip,
     );
 }
+
+#[test]
+fn do_undo_repeated_headword_uncompressed() {
+    do_undo(
+        Path::new("tests/fixtures/formats/mdict/004-repeated-headword.mdx"),
+        CompressionKind::None,
+    );
+}
