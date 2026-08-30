@@ -190,12 +190,9 @@ fn read_term_bank(json: &[u8], entries: &mut Vec<Entry>, alt_map: &mut AltMap) -
     // Unfortunately there is no way to maintain the order: it does
     // not matter for the dictionary but it makes testing harder.
     for term_bank_entry in term_bank {
-        // TODO: is_inflection is not perfect, it assumes that an
-        // inflection is made from an homogeneous Vec<inflections>,
-        // when in reality they could be mixed.
-        if term_bank_entry.is_inflection() {
+        if let Some(source) = term_bank_entry.inflection_source() {
             alt_map
-                .entry(term_bank_entry.term.clone())
+                .entry(source.to_string())
                 .or_default()
                 .push(AltEntry::new(
                     term_bank_entry.term.clone(),
@@ -258,4 +255,40 @@ fn read_term_meta_banks(term_meta_banks: &[(String, Vec<u8>)]) -> Result<TermMet
 
 fn read_tag_banks(tag_banks: &[(String, Vec<u8>)]) -> Result<TagBank> {
     read_banks::<TagBank>(tag_banks)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A lemma, and an inflection of it. Note where the two terms sit:
+    //
+    //   ["nieves", ..., [["nieve", ["plural"]]], ...]
+    //     ^^^^^^                    the inflected form, as the entry's own term
+    //                ^^^^^          the term it inflects from, inside the definition
+    //
+    // so the alt_map has to be keyed "nieve" -> ["nieves"], not the other way
+    // round, or the alt never reaches the entry it belongs to.
+    const BANK: &str = r#"[
+        ["nieve",  "", "", "",  0, ["snow"],                0, ""],
+        ["nieves", "", "", "n", 0, [["nieve", ["plural"]]], 0, ""]
+    ]"#;
+
+    #[test]
+    fn an_inflection_is_filed_under_the_term_it_inflects_from() {
+        let mut entries = Vec::new();
+        let mut alt_map = AltMap::new();
+        read_term_bank(BANK.as_bytes(), &mut entries, &mut alt_map).unwrap();
+
+        // Only the lemma is an entry; the inflection became one of its alts.
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].term(), "nieve");
+
+        let alts: Vec<_> = alt_map["nieve"].iter().map(AltEntry::term).collect();
+        assert_eq!(alts, ["nieves"]);
+        assert!(!alt_map.contains_key("nieves"));
+
+        // Which is the whole point: the alt comes back out of its entry.
+        assert_eq!(entries[0].s_terms(&alt_map), "nieve|nieves");
+    }
 }

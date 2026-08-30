@@ -40,10 +40,18 @@ impl TermBankEntry {
         }
     }
 
-    pub fn is_inflection(&self) -> bool {
-        self.definitions
-            .iter()
-            .all(|def| matches!(def, DetailedDefinition::Inflection(..)))
+    /// The term this entry is an inflection of, or `None` if it is not one.
+    //
+    // TODO: when there are several inflections we assume they share a source
+    // and take the first, when in reality they could differ.
+    pub fn inflection_source(&self) -> Option<&str> {
+        let mut sources = self.definitions.iter().map(|def| match def {
+            DetailedDefinition::Inflection(term, _) => Some(term.as_str()),
+            _ => None,
+        });
+        // There has to be at least one, and every definition has to be one.
+        let first = sources.next()??;
+        sources.all(|source| source.is_some()).then_some(first)
     }
 }
 
@@ -511,5 +519,33 @@ impl TryFrom<&str> for FontWeight {
             "bold" => Ok(Self::Bold),
             _ => Err("unsupported font-weight value"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(json: &str) -> TermBankEntry {
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn inflection_source_reads_the_term_inside_the_definition() {
+        let inflection = entry(r#"["nieves", "", "", "n", 0, [["nieve", ["plural"]]], 0, ""]"#);
+        assert_eq!(inflection.term, "nieves");
+        assert_eq!(inflection.inflection_source(), Some("nieve"));
+
+        // A plain definition is not an inflection.
+        let lemma = entry(r#"["nieve", "", "", "", 0, ["snow"], 0, ""]"#);
+        assert_eq!(lemma.inflection_source(), None);
+
+        // Nor is a mix of the two.
+        let mixed = entry(r#"["nieves", "", "", "", 0, [["nieve", []], "snow"], 0, ""]"#);
+        assert_eq!(mixed.inflection_source(), None);
+
+        // Nor is an entry with no definitions at all.
+        let empty = entry(r#"["nieves", "", "", "", 0, [], 0, ""]"#);
+        assert_eq!(empty.inflection_source(), None);
     }
 }
