@@ -56,12 +56,12 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
             // Use the first one as term; the rest as alts
             let mut parts = key.split(TERM_SEPARATOR);
             let term = parts.next().unwrap_or(key).to_string();
-            let mut alts = parts
+            let alts: Vec<_> = parts
                 .map(|alt| AltEntry::only_term(alt.to_string()))
-                .peekable();
+                .collect();
             entries.push(Entry::new(term.clone(), Definition::from_raw_text(value)));
-            if alts.peek().is_some() {
-                alt_map.entry(term).or_default().extend(alts);
+            if !alts.is_empty() {
+                alt_map.entry(term).or_insert(alts);
             }
         }
     }

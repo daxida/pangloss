@@ -1,0 +1,3 @@
+##name	repeated headword
+bank|banks	a riverside
+bank|banks	a place for money

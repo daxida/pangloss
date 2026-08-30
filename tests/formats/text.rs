@@ -27,3 +27,10 @@ fn do_undo_base() {
 fn do_undo_alts() {
     do_undo(Path::new("tests/fixtures/formats/text/alts.txt"));
 }
+
+#[test]
+fn do_undo_repeated_headword() {
+    do_undo(Path::new(
+        "tests/fixtures/formats/text/004-repeated-headword.txt",
+    ));
+}
