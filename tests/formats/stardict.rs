@@ -3,7 +3,9 @@ use std::path::Path;
 use pretty_assertions::assert_eq;
 use tempfile::tempdir;
 
-use pangloss::{Definition, Entry, Glossary, Reader, Writer, formats::stardict::StardictFormat};
+use pangloss::{
+    DataEntry, Definition, Entry, Glossary, Reader, Writer, formats::stardict::StardictFormat,
+};
 
 fn do_undo(ipath: &Path) {
     let tmpdir = tempfile::TempDir::new().expect("failed to create temp dir");
@@ -96,5 +98,37 @@ fn test_idx_entries_written_in_sorted_order() {
     assert_eq!(
         read_terms, expected,
         "idx entries should be in lexicographic order"
+    );
+}
+
+#[test]
+fn media_reaches_the_res_directory() {
+    let dir = tempdir().unwrap();
+    let opath = dir.path().join("out.ifo");
+
+    let glossary = Glossary {
+        entries: vec![Entry::new(
+            "apple".to_string(),
+            Definition::Text("a fruit".to_string()),
+        )],
+        data_entries: vec![
+            DataEntry::new("image.gif", b"GIF89a".to_vec()),
+            DataEntry::new("styles.css", b"body {}".to_vec()),
+        ],
+        ..Default::default()
+    };
+
+    StardictFormat
+        .write(&opath, &glossary)
+        .expect("failed to write");
+
+    let res = dir.path().join("res");
+    assert_eq!(
+        std::fs::read(res.join("image.gif")).unwrap(),
+        b"GIF89a".to_vec()
+    );
+    assert_eq!(
+        std::fs::read(res.join("styles.css")).unwrap(),
+        b"body {}".to_vec()
     );
 }

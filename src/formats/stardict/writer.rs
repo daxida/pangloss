@@ -38,7 +38,7 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
         let parent = path.parent().unwrap();
         let opath = parent.join("res"); // stardict convention
         let _ = fs::create_dir(&opath);
-        for data_entry in glossary.css_files() {
+        for data_entry in &glossary.data_entries {
             let fname = opath.join(data_entry.fname());
             fs::write(&fname, data_entry.bytes())?;
         }
