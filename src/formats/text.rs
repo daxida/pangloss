@@ -46,7 +46,10 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         if line.is_empty() {
             continue;
         }
-        let (key, value) = line.split_once('\t').unwrap_or((&line, ""));
+        let Some((key, value)) = line.split_once('\t') else {
+            tracing::warn!("Skipping line with no tab: {line}");
+            continue;
+        };
         if let Some(info_key) = key.strip_prefix("##") {
             info.insert(info_key, value.to_string());
         } else {
