@@ -72,7 +72,20 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     let keys = read_keys(&mut reader, encoding, encryption)?;
     let values = read_values(&mut reader, &keys, encoding)?;
 
-    // First pass: collect @@@LINK redirects
+    let (entries, alt_map) = build_entries(keys, values);
+
+    Ok(Glossary {
+        entries,
+        data_entries,
+        alt_map,
+        info,
+        metadata,
+    })
+}
+
+/// Split the key/value pairs into entries and their alts.
+fn build_entries(keys: Vec<String>, values: Vec<String>) -> (Vec<Entry>, AltMap) {
+    // First pass: collect @@@LINK redirects.
     // links_map: headword -> Vec<alt_term>
     let mut links_map: HashMap<String, Vec<String>> = HashMap::new();
     for (term, defi) in keys.iter().zip(values.iter()) {
@@ -109,13 +122,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         entries.push(Entry::with_html(term, definition));
     }
 
-    Ok(Glossary {
-        entries,
-        data_entries,
-        alt_map,
-        info,
-        metadata,
-    })
+    (entries, alt_map)
 }
 
 struct ParsedHeader {
