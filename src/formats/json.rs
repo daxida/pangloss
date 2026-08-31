@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::{
     Context, Reader, Writer,
-    glossary::{Definition, Entry, Glossary, GlossaryInfo},
+    glossary::{AltEntry, Definition, Entry, Glossary, GlossaryInfo, TERM_SEPARATOR},
 };
 
 pub struct JsonFormat;
@@ -46,7 +46,13 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         if let Some(info_key) = key.strip_prefix("##") {
             info.insert(info_key, value_str);
         } else {
-            entries.push(Entry::new(key, Definition::from_raw_text(&value_str)));
+            let mut parts = key.split(TERM_SEPARATOR);
+            let term = parts.next().unwrap_or(key.as_str()).to_string();
+            let alts: Vec<_> = parts
+                .map(|alt| AltEntry::only_term(alt.to_string()))
+                .collect();
+            let definition = Definition::from_raw_text(&value_str);
+            entries.push(Entry::new(term, definition).with_alts(alts));
         }
     }
 
