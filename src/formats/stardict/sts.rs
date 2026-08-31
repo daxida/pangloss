@@ -44,8 +44,7 @@ impl SameTypeSequence {
                     .iter()
                     .map(|e| match e.definition() {
                         Definition::Text(_) => Self::Text,
-                        Definition::Html(_) => Self::Html,
-                        Definition::Yomitan(_) => unreachable!(),
+                        Definition::Html(_) | Definition::Yomitan(_) => Self::Html,
                     })
                     .collect();
                 if kinds.len() == 1 {

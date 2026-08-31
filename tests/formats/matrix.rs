@@ -19,11 +19,6 @@ const OUTPUTS: [&str; 6] = ["txt", "json", "mdx", "ifo", "zip", "hdir"];
 /// dictionaries in their own right.
 const NOT_DICTIONARIES: [&str; 2] = ["index.json", "term_bank_1.json"];
 
-// FIXME: Yomitan > Stardict
-fn is_known_failure(reader: ReaderFormat, writer: WriterFormat) -> bool {
-    reader == ReaderFormat::Yomitan && writer == WriterFormat::Stardict
-}
-
 fn collect_fixtures(dir: &Path) -> Vec<PathBuf> {
     let mut found = Vec::new();
     for entry in fs::read_dir(dir).expect("failed to read the fixture directory") {
@@ -55,11 +50,6 @@ fn every_fixture_converts_to_every_format() {
         for ext in OUTPUTS {
             let opath = dir.path().join(format!("out.{ext}"));
             let wformat = WriterFormat::try_from_path(&opath).expect("a writable extension");
-            // TODO: remove me
-            if is_known_failure(rformat, wformat) {
-                continue;
-            }
-
             converted += 1;
             if let Err(err) = rformat
                 .read(input)
