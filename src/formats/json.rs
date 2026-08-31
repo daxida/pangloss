@@ -39,7 +39,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
             other => other.to_string(),
         };
 
-        if key.is_empty() || value_str.is_empty() {
+        if key.is_empty() {
             continue;
         }
 
