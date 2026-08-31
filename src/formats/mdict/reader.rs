@@ -107,7 +107,6 @@ fn build_entries(keys: Vec<String>, values: Vec<String>) -> Vec<Entry> {
     // Second pass: build entries, skip @@@LINK entries
     let mut entries = Vec::new();
     for (term, definition) in keys.into_iter().zip(values) {
-        // WARN: this breaks the roundtrip invariant
         if definition.starts_with("@@@LINK=") {
             continue;
         }

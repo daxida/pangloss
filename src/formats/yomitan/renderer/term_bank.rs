@@ -47,7 +47,7 @@ fn render_definition_tags(s: &str, tag_bank: &[TagBankEntry]) -> String {
         return String::new();
     }
     // Do not split by whitespace: Yomitan splits by space and Jitendex uses
-    // \u{a0} to circumvent the spliting logic.
+    // \u{a0} to circumvent the splitting logic.
     let mut tags: Vec<_> = s.split(' ').collect();
     // sort them by tag_bank sort_order
     tags.sort_by_key(|tag| {
