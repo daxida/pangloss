@@ -213,6 +213,31 @@ fn element_to_node(el: ElementRef) -> Node {
             lang: None,
         })),
 
+        "img" => match value.attr("src") {
+            Some(src) => Node::Image(Box::new(ImageNode {
+                tag: ImageNodeTag::Img,
+                path: src.to_string(),
+                data: data.clone(),
+                width: value.attr("width").and_then(|w| w.parse().ok()),
+                height: value.attr("height").and_then(|h| h.parse().ok()),
+                title,
+                alt: value.attr("alt").map(str::to_string),
+                description: None,
+                pixelated: None,
+                image_rendering: None,
+                appearance: None,
+                background: None,
+                collapsed: None,
+                collapsible: None,
+                vertical_align: None,
+                border: None,
+                border_radius: None,
+                size_units: None,
+            })),
+            None => content,
+        },
+
+
         // fallback
         // _ => content,
         //
@@ -220,7 +245,7 @@ fn element_to_node(el: ElementRef) -> Node {
         //
         // TODO: add some default support for unrecognized tags
         other => {
-            if !["html", "a", "link", "img", "script"].contains(&other) {
+            if !["html", "a", "link", "script"].contains(&other) {
                 tracing::warn!(
                     tag = other,
                     // html = %el.html(),
@@ -324,6 +349,19 @@ mod tests {
             r#"<font color="red">word</font>"#,
         ] {
             assert_eq!(tag_of(html), NTag::Span, "{html} should map to a span");
+        }
+    }
+
+    #[test]
+    fn an_img_becomes_an_image_node() {
+        match html_to_node(r#"<img src="apple.png" width="64" height="64" alt="an apple">"#) {
+            Node::Image(image) => {
+                assert_eq!(image.path, "apple.png");
+                assert_eq!(image.width, Some(64.0));
+                assert_eq!(image.height, Some(64.0));
+                assert_eq!(image.alt.as_deref(), Some("an apple"));
+            }
+            other => panic!("expected an image node, got {other:?}"),
         }
     }
 
