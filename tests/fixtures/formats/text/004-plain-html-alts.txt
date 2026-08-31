@@ -1,0 +1,9 @@
+#name	004-plain-html-alts
+#author	Saeed
+#email	test@test
+#website	test.com
+#description	Test glossary with 2 entries: html and plaintext
+Entry 1	Plaintext\nLine 2
+Entry 2	<b>HTML</b>
+Entry 3|third entry	Plaintext\nLine 2
+Entry 4|fourth entry	<b>HTML</b>

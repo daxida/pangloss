@@ -54,6 +54,10 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
             // Use the first one as term; the rest as alts
             let mut parts = key.split(TERM_SEPARATOR);
             let term = parts.next().unwrap_or(key).to_string();
+            if term.is_empty() {
+                tracing::warn!("Skipping line with an empty headword: {line}");
+                continue;
+            }
             let alts: Vec<_> = parts
                 .map(|alt| AltEntry::only_term(alt.to_string()))
                 .collect();

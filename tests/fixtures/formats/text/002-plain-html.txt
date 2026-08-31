@@ -1,0 +1,7 @@
+#name	002-plain-html
+#author	Saeed
+#email	test@test
+#website	test.com
+#description	Test glossary with 2 entries: html and plaintext
+Entry 1	Plaintext\nLine 2
+Entry 2	<b>HTML</b>
