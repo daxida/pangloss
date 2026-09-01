@@ -68,6 +68,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
                 let content = fs::read(path)?;
                 data_entries.push(DataEntry::new(fname, content));
             }
+            Some("mdd") => data_entries.extend(read_mdd(&path)?),
             _ => tracing::warn!("Ignoring unsupported file: {fname}"),
         }
     }
@@ -379,6 +380,134 @@ fn read_values<R: Read>(
     }
 
     Ok(values)
+}
+
+pub fn read_mdd(path: &Path) -> Result<Vec<DataEntry>> {
+    let file = fs::File::open(path)?;
+    let mut reader = BufReader::new(&file);
+
+    let attrs = read_mdd_header(&mut reader)?;
+    let encryption = EncryptionKind::try_from(
+        attrs
+            .get("Encrypted")
+            .context("Missing Encrypted in MDD header")?
+            .as_str(),
+    )?;
+
+    let keys = read_mdd_keys(&mut reader, encryption)?;
+    let records = read_mdd_records(&mut reader)?;
+
+    let mut data_entries = Vec::with_capacity(keys.len());
+    for (index, (offset, name)) in keys.iter().enumerate() {
+        let start = *offset as usize;
+        // The last record runs to the end of the block.
+        let end = keys
+            .get(index + 1)
+            .map_or(records.len(), |(next, _)| *next as usize);
+        if start > end || end > records.len() {
+            bail!("Resource {name} lies outside the record block");
+        }
+        data_entries.push(DataEntry::new(name.clone(), records[start..end].to_vec()));
+    }
+
+    Ok(data_entries)
+}
+
+/// The header attributes, without the encoding an .mdd does not fill in.
+fn read_mdd_header<R: Read>(reader: &mut R) -> Result<IndexMap<String, String>> {
+    let header_text_size = read_u32_be(reader)? as usize;
+    let mut raw = vec![0u8; header_text_size];
+    reader.read_exact(&mut raw)?;
+
+    let checksum = read_u32_le(reader)?;
+    if adler32(&raw) != checksum {
+        bail!("MDD header checksum mismatch");
+    }
+
+    let header = Encoding::Utf16.decode(&raw);
+    let mut attrs = IndexMap::new();
+    for cap in HEADER_ENTRY_RE.captures_iter(&header) {
+        attrs.insert(cap[1].to_string(), unescape_html(&cap[2]));
+    }
+    Ok(attrs)
+}
+
+/// The resource paths, each with the offset its bytes start at.
+fn read_mdd_keys<R: Read>(
+    reader: &mut R,
+    encryption: EncryptionKind,
+) -> Result<Vec<(u64, String)>> {
+    let _num_blocks = read_u64_be(reader)?;
+    let _num_entries = read_u64_be(reader)?;
+    let _decompressed_size = read_u64_be(reader)?;
+    let key_block_info_size = read_u64_be(reader)?;
+    let _key_block_size = read_u64_be(reader)?;
+    let _checksum = read_u32_be(reader)?;
+
+    let mut info_compressed = vec![0u8; key_block_info_size as usize];
+    reader.read_exact(&mut info_compressed)?;
+
+    if encryption.encrypts_index() && info_compressed.len() > 8 {
+        let mut key_input = [0u8; 8];
+        key_input[..4].copy_from_slice(&info_compressed[4..8]);
+        key_input[4..].copy_from_slice(&0x3695u32.to_le_bytes());
+        let key = ripemd128(&key_input);
+        fast_decrypt(&mut info_compressed[8..], &key);
+    }
+
+    let info = decompress_block(&info_compressed)?;
+    let block_sizes = parse_key_block_info(&info, Encoding::Utf16)?;
+
+    let mut keys = Vec::new();
+    for (compressed_size, _) in block_sizes {
+        let mut block_data = vec![0u8; compressed_size as usize];
+        reader.read_exact(&mut block_data)?;
+        let block = decompress_block(&block_data)?;
+
+        let mut cursor = Cursor::new(&block);
+        while (cursor.position() as usize) < block.len() {
+            let offset = read_u64_be(&mut cursor)?;
+
+            let mut name_bytes = Vec::new();
+            let mut pair = [0u8; 2];
+            while cursor.read_exact(&mut pair).is_ok() && pair != [0, 0] {
+                name_bytes.extend_from_slice(&pair);
+            }
+
+            keys.push((offset, resource_name(&Encoding::Utf16.decode(&name_bytes))));
+        }
+    }
+
+    Ok(keys)
+}
+
+/// The record blocks, decompressed and joined.
+fn read_mdd_records<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
+    let num_blocks = read_u64_be(reader)?;
+    let _num_entries = read_u64_be(reader)?;
+    let _info_size = read_u64_be(reader)?;
+    let _total_size = read_u64_be(reader)?;
+
+    let mut block_descs = Vec::with_capacity(num_blocks as usize);
+    for _ in 0..num_blocks {
+        let compressed = read_u64_be(reader)?;
+        let decompressed = read_u64_be(reader)?;
+        block_descs.push((compressed, decompressed));
+    }
+
+    let mut records = Vec::new();
+    for (compressed_size, _) in &block_descs {
+        let mut block_data = vec![0u8; *compressed_size as usize];
+        reader.read_exact(&mut block_data)?;
+        records.extend_from_slice(&decompress_block(&block_data)?);
+    }
+
+    Ok(records)
+}
+
+/// `\\picture.gif` is how a definition's `src="picture.gif"` is stored.
+fn resource_name(key: &str) -> String {
+    key.replace('\\', "/").trim_start_matches('/').to_string()
 }
 
 fn read_u8<R: Read>(r: &mut R) -> Result<u8> {
