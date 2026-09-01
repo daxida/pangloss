@@ -211,13 +211,9 @@ fn collect_pairs(glossary: &Glossary) -> Pairs {
     }
 
     // Sort by term (MDX keys must be sorted)
-    // TODO: This sorting is scuffed!
-    pairs.sort_by(|a, b| {
-        let strip = |s: &str| {
-            s.trim_start_matches(|c: char| !c.is_alphanumeric())
-                .to_lowercase()
-        };
-        strip(&a.0).cmp(&strip(&b.0))
+    pairs.sort_by_cached_key(|(term, _)| {
+        term.trim_start_matches(|c: char| !c.is_alphanumeric())
+            .to_lowercase()
     });
 
     pairs

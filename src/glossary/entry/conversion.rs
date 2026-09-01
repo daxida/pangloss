@@ -36,8 +36,12 @@ impl HtmlConverter {
 
 impl HtmlConverter {
     pub fn convert(&self, def: &Definition) -> String {
+        let html = def.to_html(self.tag_bank.as_deref());
+        if self.css_files.is_empty() {
+            return html;
+        }
         let mut out = self.leading_links();
-        out.push_str(&def.to_html(self.tag_bank.as_deref()));
+        out.push_str(&html);
         out
     }
 
