@@ -1,14 +1,12 @@
 use ripemd::{Digest, Ripemd128};
 
-// Apparently I already have adler2 as a dep, we could skip rewriting it
+/// The checksum every mdict block carries.
+///
+/// simd-adler32 rather than a loop of our own: it was already a dependency by
+/// way of zip, and it is an order of magnitude quicker over the megabytes a
+/// large dictionary checksums.
 pub fn adler32(data: &[u8]) -> u32 {
-    const MOD: u32 = 65521;
-    let (mut a, mut b) = (1u32, 0u32);
-    for &byte in data {
-        a = (a + u32::from(byte)) % MOD;
-        b = (b + a) % MOD;
-    }
-    (b << 16) | a
+    simd_adler32::adler32(&data)
 }
 
 pub fn ripemd128(data: &[u8]) -> [u8; 16] {

@@ -76,8 +76,9 @@ pub fn write_compact(sts: SameTypeSequence, path: &Path, glossary: &Glossary) ->
             alt_index_list.push((b_alt, entry_idx));
         }
 
-        let b_dict_block = converter.convert(entry.definition()).into_bytes();
-        dict_file.write_all(&b_dict_block)?;
+        let definition = converter.convert(entry.definition());
+        let b_dict_block = definition.as_bytes();
+        dict_file.write_all(b_dict_block)?;
 
         idx_file.write_all(b_term)?;
         idx_file.write_u8(0)?;
