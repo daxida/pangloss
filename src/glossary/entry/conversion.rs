@@ -237,7 +237,6 @@ fn element_to_node(el: ElementRef) -> Node {
             None => content,
         },
 
-
         // fallback
         // _ => content,
         //

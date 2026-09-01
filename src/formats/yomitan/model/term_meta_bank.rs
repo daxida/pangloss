@@ -68,7 +68,7 @@ pub enum FrequencyTerm {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PitchData {
     pub reading: String,
     pub pitches: Vec<PitchAccentInfo>,
