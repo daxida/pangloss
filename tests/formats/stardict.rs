@@ -38,6 +38,13 @@ fn do_undo_base() {
 }
 
 #[test]
+fn do_undo_larousse_extract() {
+    do_undo(Path::new(
+        "tests/fixtures/formats/stardict/05-larousse-extract/larousse.ifo",
+    ));
+}
+
+#[test]
 fn do_undo_syns() {
     // This test requires sorting entries!
     do_undo(Path::new(

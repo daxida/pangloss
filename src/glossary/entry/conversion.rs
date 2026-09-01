@@ -75,6 +75,37 @@ fn strip_html(s: &str) -> String {
     out.trim().to_string()
 }
 
+fn node_text(node: &Node) -> String {
+    match node {
+        Node::Text(text) => text.clone(),
+        Node::Array(nodes) => nodes.iter().map(node_text).collect(),
+        _ => String::new(),
+    }
+}
+
+/// Decode Babylon character references: `025B;` is ɛ, and there may be several
+/// in one tag, `0041;0042;` being AB.
+///
+/// It doesn't belong here, and we don't support the Babylon format but since it can 
+/// happen in other formats converted from Babylon, we ported the logic from pyglossary.
+fn decode_references(text: &str) -> String {
+    let mut out = String::new();
+    for reference in text.split_terminator(';') {
+        match u32::from_str_radix(reference, 16)
+            .ok()
+            .filter(|_| reference.len() == 4)
+            .and_then(char::from_u32)
+        {
+            Some(c) => out.push(c),
+            None => {
+                tracing::warn!("Not a charset reference: {reference}");
+                out.push_str(reference);
+            }
+        }
+    }
+    out
+}
+
 pub fn html_to_structured_content(html: &str) -> DetailedDefinition {
     DetailedDefinition::StructuredContent(StructuredContent::new(html_to_node(html)))
 }
@@ -148,6 +179,15 @@ fn element_to_node(el: ElementRef) -> Node {
             tag: LineBreakNodeTag::Br,
             content: None,
         })),
+
+        // `<charset c="T">025B;</charset>` is ɛ. See [`decode_references`].
+        "charset" => {
+            let text = node_text(&content);
+            match value.attr("c") {
+                Some(c) if c.eq_ignore_ascii_case("t") => Node::Text(decode_references(&text)),
+                _ => content,
+            }
+        }
 
         // Yomitan has no hr, so draw the rule with a border instead.
         "hr" => Node::Generic(Box::new(GenericNode {
@@ -378,6 +418,29 @@ mod tests {
             }
             other => panic!("expected an image node, got {other:?}"),
         }
+    }
+
+    // Babylon codepoint references.
+    #[test]
+    fn a_charset_reference_becomes_its_character() {
+        assert_eq!(
+            node_text(&html_to_node(r#"[el<CHARSET c="T">025B;</CHARSET>v]"#)),
+            "[elɛv]"
+        );
+        // Several in one tag.
+        assert_eq!(
+            node_text(&html_to_node(r#"<CHARSET c="T">0041;0042;</CHARSET>"#)),
+            "AB"
+        );
+    }
+
+    // Any other `c` (!=T/t) names an encoding, and the text is already decoded by now.
+    #[test]
+    fn a_charset_that_is_not_a_reference_passes_through() {
+        assert_eq!(
+            node_text(&html_to_node(r#"<CHARSET c="U">déjà</CHARSET>"#)),
+            "déjà"
+        );
     }
 
     #[test]

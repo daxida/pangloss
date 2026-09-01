@@ -1,0 +1,7 @@
+StarDict's dict ifo file
+version=3.0.0
+bookname=Larousse Compact français-espagnol
+wordcount=2
+idxfilesize=32
+sametypesequence=h
+description=Two entries from the Larousse Compact: nested bold and an hr
