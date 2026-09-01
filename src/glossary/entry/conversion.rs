@@ -86,21 +86,20 @@ fn node_text(node: &Node) -> String {
 /// Decode Babylon character references: `025B;` is ɛ, and there may be several
 /// in one tag, `0041;0042;` being AB.
 ///
-/// It doesn't belong here, and we don't support the Babylon format but since it can 
+/// It doesn't belong here, and we don't support the Babylon format but since it can
 /// happen in other formats converted from Babylon, we ported the logic from pyglossary.
 fn decode_references(text: &str) -> String {
     let mut out = String::new();
     for reference in text.split_terminator(';') {
-        match u32::from_str_radix(reference, 16)
+        if let Some(c) = u32::from_str_radix(reference, 16)
             .ok()
             .filter(|_| reference.len() == 4)
             .and_then(char::from_u32)
         {
-            Some(c) => out.push(c),
-            None => {
-                tracing::warn!("Not a charset reference: {reference}");
-                out.push_str(reference);
-            }
+            out.push(c)
+        } else {
+            tracing::warn!("Not a charset reference: {reference}");
+            out.push_str(reference);
         }
     }
     out
