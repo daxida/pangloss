@@ -50,6 +50,8 @@ Every non-trivial format targets a concrete reader, f.e. [goldendict-ng] in the 
 
 You can use this as a library to make dictionaries, but that is not a priority.
 
+There is no lookup API and there won't be one: we only do conversions.
+
 ## TODO
 - [ ] Make a good stardict from jitendex-yomitan!!
   - [ ] Star icon
