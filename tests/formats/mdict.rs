@@ -76,3 +76,44 @@ fn do_undo_repeated_headword_uncompressed() {
         CompressionKind::None,
     );
 }
+
+#[test]
+fn a_picture_is_read_from_the_mdd() {
+    let glossary = MdictFormat::default()
+        .read(Path::new(
+            "tests/fixtures/formats/mdict/005-picture/005-picture.mdx",
+        ))
+        .expect("failed to read");
+
+    let names: Vec<_> = glossary
+        .data_entries
+        .iter()
+        .map(|d| d.fname().to_string_lossy().to_string())
+        .collect();
+    assert_eq!(names, ["apple.png"]);
+    assert_eq!(&glossary.data_entries[0].bytes()[..4], b"\x89PNG");
+}
+
+#[test]
+fn do_undo_picture_with_mdd() {
+    let dir = tempfile::tempdir().unwrap();
+    let opath = dir.path().join("out.mdx");
+
+    let fmt = MdictFormat::new(CompressionKind::None);
+    let glossary = fmt
+        .read(Path::new(
+            "tests/fixtures/formats/mdict/005-picture/005-picture.mdx",
+        ))
+        .expect("failed to read");
+    fmt.write(&opath, &glossary).expect("failed to write");
+
+    assert!(dir.path().join("out.mdd").exists(), "no .mdd was written");
+
+    let back = fmt.read(&opath).expect("failed to read the pair back");
+    assert_eq!(back.data_entries.len(), 1);
+    assert_eq!(back.data_entries[0].fname().to_string_lossy(), "apple.png");
+    assert_eq!(
+        back.data_entries[0].bytes(),
+        glossary.data_entries[0].bytes()
+    );
+}

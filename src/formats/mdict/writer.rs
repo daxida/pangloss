@@ -1,4 +1,5 @@
 use std::{
+    fmt::Write as _,
     fs,
     io::{BufWriter, Write},
     path::Path,
@@ -15,8 +16,8 @@ use crate::{
         ATTR_ORDER, COMPRESSION_HEADER_0, COMPRESSION_HEADER_2, CompressionKind, MdictFormat,
         default_attr,
     },
-    glossary::{Glossary, GlossaryInfo, HtmlConverter},
-    utils::{escape_html, parent_dir},
+    glossary::{DataEntry, Glossary, GlossaryInfo, HtmlConverter},
+    utils::escape_html,
 };
 
 impl Writer for MdictFormat {
@@ -43,16 +44,122 @@ fn write_with_context(
     write_key_blocks(&mut writer, &pairs, compression)?;
     write_record_blocks(&mut writer, &pairs, compression)?;
 
+    // The resources go in the companion .mdd, including css
+    // (even though we support reading the css files standalone)
     if !glossary.data_entries.is_empty() {
-        let opath = parent_dir(path); // mdict convention: same folder
-        let _ = fs::create_dir(opath);
-        for data_entry in glossary.css_files() {
-            let fname = opath.join(data_entry.fname());
-            fs::write(&fname, data_entry.bytes())?;
-        }
+        write_mdd(
+            &path.with_extension("mdd"),
+            &glossary.data_entries,
+            compression,
+        )?;
     }
 
     Ok(())
+}
+
+/// The header of a .mdd, which names a different root and fills in no encoding.
+const MDD_ATTR_ORDER: [(&str, &str); 10] = [
+    ("GeneratedByEngineVersion", "2.0"),
+    ("RequiredEngineVersion", "2.0"),
+    ("Format", ""),
+    ("KeyCaseSensitive", "No"),
+    ("StripKey", "No"),
+    ("Encrypted", "No"),
+    ("RegisterBy", ""),
+    ("Title", ""),
+    ("Encoding", ""),
+    ("CreationDate", ""),
+];
+
+/// Write the resources to a .mdd beside the .mdx.
+fn write_mdd(path: &Path, data_entries: &[DataEntry], compression: CompressionKind) -> Result<()> {
+    let file = fs::File::create(path)?;
+    let mut writer = BufWriter::new(file);
+
+    let title = path.file_stem().unwrap_or_default().to_string_lossy();
+    let mut xml = String::from("<Library_Data ");
+    for (key, value) in MDD_ATTR_ORDER {
+        let value = if key == "Title" { &title } else { value };
+        let _ = write!(xml, "{key}=\"{}\" ", escape_html(value));
+    }
+    xml.push_str("/>\r\n\0");
+
+    let mut raw = Vec::with_capacity(xml.len() * 2);
+    for unit in xml.encode_utf16() {
+        raw.extend_from_slice(&unit.to_le_bytes());
+    }
+    writer.write_all(&(raw.len() as u32).to_be_bytes())?;
+    writer.write_all(&raw)?;
+    writer.write_all(&adler32(&raw).to_le_bytes())?;
+
+    // Key block: the offset a file's bytes start at, then its path.
+    let names: Vec<Vec<u16>> = data_entries
+        .iter()
+        .map(|entry| resource_key(&entry.fname().to_string_lossy()))
+        .collect();
+    let mut key_block = Vec::new();
+    let mut offset = 0u64;
+    for (name, entry) in names.iter().zip(data_entries) {
+        key_block.extend_from_slice(&offset.to_be_bytes());
+        for unit in name {
+            key_block.extend_from_slice(&unit.to_le_bytes());
+        }
+        key_block.extend_from_slice(&[0, 0]);
+        offset += entry.bytes().len() as u64;
+    }
+    let compressed = compress_block(&key_block, compression)?;
+
+    let empty = Vec::new();
+    let first = names.first().unwrap_or(&empty);
+    let last = names.last().unwrap_or(&empty);
+    let mut info = Vec::new();
+    info.extend_from_slice(&(data_entries.len() as u64).to_be_bytes());
+    for name in [first, last] {
+        // The length is in characters; the reader skips (length + 1) * 2 bytes.
+        info.extend_from_slice(&(name.len() as u16).to_be_bytes());
+        for unit in name {
+            info.extend_from_slice(&unit.to_le_bytes());
+        }
+        info.extend_from_slice(&[0, 0]);
+    }
+    info.extend_from_slice(&(compressed.len() as u64).to_be_bytes());
+    info.extend_from_slice(&(key_block.len() as u64).to_be_bytes());
+    let info_compressed = compress_block(&info, compression)?;
+
+    let mut header_buf = Vec::new();
+    header_buf.extend_from_slice(&1u64.to_be_bytes()); // num_blocks
+    header_buf.extend_from_slice(&(data_entries.len() as u64).to_be_bytes());
+    header_buf.extend_from_slice(&(info.len() as u64).to_be_bytes());
+    header_buf.extend_from_slice(&(info_compressed.len() as u64).to_be_bytes());
+    header_buf.extend_from_slice(&(compressed.len() as u64).to_be_bytes());
+    writer.write_all(&header_buf)?;
+    writer.write_all(&adler32(&header_buf).to_be_bytes())?;
+    writer.write_all(&info_compressed)?;
+    writer.write_all(&compressed)?;
+
+    // Record block: the files themselves, one after another.
+    let records: Vec<u8> = data_entries
+        .iter()
+        .flat_map(|entry| entry.bytes().iter().copied())
+        .collect();
+    let compressed = compress_block(&records, compression)?;
+
+    writer.write_all(&1u64.to_be_bytes())?; // num_blocks
+    writer.write_all(&(data_entries.len() as u64).to_be_bytes())?;
+    writer.write_all(&16u64.to_be_bytes())?; // info size: one descriptor
+    writer.write_all(&(compressed.len() as u64).to_be_bytes())?;
+    writer.write_all(&(compressed.len() as u64).to_be_bytes())?;
+    writer.write_all(&(records.len() as u64).to_be_bytes())?;
+    writer.write_all(&compressed)?;
+
+    Ok(())
+}
+
+/// `apple.png` is stored as `\apple.png`, the way a definition's src resolves.
+fn resource_key(name: &str) -> Vec<u16> {
+    format!("\\{}", name.replace('/', "\\"))
+        .encode_utf16()
+        .collect()
 }
 
 fn write_header<W: Write>(writer: &mut W, info: &GlossaryInfo) -> Result<()> {
