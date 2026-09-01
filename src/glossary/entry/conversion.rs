@@ -149,6 +149,22 @@ fn element_to_node(el: ElementRef) -> Node {
             content: None,
         })),
 
+        // Yomitan has no hr, so draw the rule with a border instead.
+        "hr" => Node::Generic(Box::new(GenericNode {
+            tag: NTag::Div,
+            content: None,
+            title: None,
+            style: Some(NodeStyle {
+                border_style: Some("solid".to_string()),
+                border_width: Some("1px 0 0 0".to_string()),
+                border_color: Some("currentColor".to_string()),
+                margin: Some("0.5em 0".to_string()),
+                ..Default::default()
+            }),
+            data: data.clone(),
+            lang: None,
+        })),
+
         // From here below, these are tags not supported by Yomitan that we
         // try to match to their closest relative.
 

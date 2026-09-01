@@ -458,6 +458,18 @@ pub struct NodeStyle {
     pub background_color: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub border_style: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub border_width: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub border_color: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub margin: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub vertical_align: Option<VerticalAlign>,
 
     #[serde(skip_serializing_if = "Option::is_none")]

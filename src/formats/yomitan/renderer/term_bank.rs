@@ -212,6 +212,18 @@ impl Renderer for NodeStyle {
         if let Some(v) = &self.list_style_type {
             let _ = write!(buf, "list-style-type:{v};");
         }
+        if let Some(v) = &self.border_style {
+            let _ = write!(buf, "border-style:{v};");
+        }
+        if let Some(v) = &self.border_width {
+            let _ = write!(buf, "border-width:{v};");
+        }
+        if let Some(v) = &self.border_color {
+            let _ = write!(buf, "border-color:{v};");
+        }
+        if let Some(v) = &self.margin {
+            let _ = write!(buf, "margin:{v};");
+        }
         buf
     }
 }
