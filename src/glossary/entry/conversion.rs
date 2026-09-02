@@ -20,40 +20,51 @@ pub struct HtmlConverter {
     // Optional since in theory we could call this converter from readers
     // that are not Yomitan
     pub tag_bank: Option<TagBank>,
+    /// The `<link>` tags for `css_files`, which are the same for every
+    /// definition, so they are built once instead of once per entry.
+    links: String,
 }
 
 impl HtmlConverter {
     pub fn new(glossary: &Glossary) -> Self {
+        let css_files: Vec<PathBuf> = glossary
+            .css_files()
+            .map(|d| d.fname().to_path_buf())
+            .collect();
         Self {
-            css_files: glossary
-                .css_files()
-                .map(|d| d.fname().to_path_buf())
-                .collect(),
+            links: leading_links(&css_files),
+            css_files,
             tag_bank: glossary.metadata.tag_bank.clone(),
         }
     }
 }
 
+fn leading_links(css_files: &[PathBuf]) -> String {
+    css_files.iter().fold(String::new(), |mut acc, fname| {
+        let _ = write!(
+            acc,
+            "<link rel='stylesheet' href='{}' type='text/css'>",
+            fname.display()
+        );
+        acc
+    })
+}
+
 impl HtmlConverter {
-    pub fn convert(&self, def: &Definition) -> String {
-        let html = def.to_html(self.tag_bank.as_deref());
-        if self.css_files.is_empty() {
-            return html;
-        }
-        let mut out = self.leading_links();
-        out.push_str(&html);
-        out
+    pub fn write_into(&self, def: &Definition, out: &mut String) {
+        out.push_str(&self.links);
+        def.write_html(self.tag_bank.as_deref(), out);
     }
 
-    fn leading_links(&self) -> String {
-        self.css_files.iter().fold(String::new(), |mut acc, fname| {
-            let _ = write!(
-                acc,
-                "<link rel='stylesheet' href='{}' type='text/css'>",
-                fname.display()
-            );
-            acc
-        })
+    pub fn convert(&self, def: &Definition) -> String {
+        let html = def.to_html(self.tag_bank.as_deref());
+        if self.links.is_empty() {
+            return html;
+        }
+        let mut out = String::with_capacity(self.links.len() + html.len());
+        out.push_str(&self.links);
+        out.push_str(&html);
+        out
     }
 }
 

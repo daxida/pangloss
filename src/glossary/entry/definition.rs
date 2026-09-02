@@ -60,6 +60,20 @@ impl Definition {
         }
     }
 
+    pub fn write_html(&self, tag_bank: Option<&[TagBankEntry]>, out: &mut String) {
+        match self {
+            Self::Text(s) | Self::Html(s) => out.push_str(s),
+            Self::Yomitan(def) => match def {
+                YomitanDefinition::TermBankEntry(term_bank_entry) => {
+                    term_bank_entry.write_html(tag_bank.unwrap_or_default(), out);
+                }
+                YomitanDefinition::TermMetaBankEntry(term_meta_bank_entry) => {
+                    out.push_str(&term_meta_bank_entry.to_html());
+                }
+            },
+        }
+    }
+
     // TODO: use cow, don't clone
     // Only call this via HtmlConverter
     pub fn to_html(&self, tag_bank: Option<&[TagBankEntry]>) -> String {
