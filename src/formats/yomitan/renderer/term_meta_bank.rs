@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use crate::formats::yomitan::{model::*, renderer::Renderer};
 
 impl TermMetaBankEntry {
@@ -7,43 +9,50 @@ impl TermMetaBankEntry {
 }
 
 impl Renderer for TermMetaBankEntry {
-    fn render(&self) -> String {
+    fn render_into(&self, out: &mut String) {
         match self {
             Self::Frequency(..) => todo!(),
             Self::Pitch(..) => todo!(),
             Self::Ipa(term, _, ipa_data) => {
-                format!(r#"<div class="entry">{term}{}</div>"#, ipa_data.render())
+                let _ = write!(out, r#"<div class="entry">{term}"#);
+                ipa_data.render_into(out);
+                out.push_str("</div>");
             }
         }
     }
 }
 
 impl Renderer for IpaData {
-    fn render(&self) -> String {
-        let transcriptions = self
-            .transcriptions
-            .iter()
-            .map(Renderer::render)
-            .collect::<String>();
-
-        format!(
-            r#"<div class="ipa-block"><div class="reading">{}</div>{}</div>"#,
-            self.reading, transcriptions
-        )
+    fn render_into(&self, out: &mut String) {
+        let _ = write!(
+            out,
+            r#"<div class="ipa-block"><div class="reading">{}</div>"#,
+            self.reading
+        );
+        for transcription in &self.transcriptions {
+            transcription.render_into(out);
+        }
+        out.push_str("</div>");
     }
 }
 
 impl Renderer for IpaTranscription {
-    fn render(&self) -> String {
-        let tags = self
-            .tags
-            .as_ref()
-            .map(|tags| format!(" <span class=\"tags\">{}</span>", tags.join(", ")))
-            .unwrap_or_default();
-
-        format!(
-            r#"<div class="ipa-item"><span class="ipa">/{}/</span>{}</div>"#,
-            self.ipa, tags
-        )
+    fn render_into(&self, out: &mut String) {
+        let _ = write!(
+            out,
+            r#"<div class="ipa-item"><span class="ipa">/{}/</span>"#,
+            self.ipa
+        );
+        if let Some(tags) = &self.tags {
+            out.push_str(r#" <span class="tags">"#);
+            for (i, tag) in tags.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                out.push_str(tag);
+            }
+            out.push_str("</span>");
+        }
+        out.push_str("</div>");
     }
 }
