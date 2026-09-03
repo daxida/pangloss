@@ -44,3 +44,8 @@ simd-adler32 = "0.3.10"
 [dev-dependencies]
 tempfile = "3"
 pretty_assertions = "1"
+divan = "0.1.21"
+
+[[bench]]
+name = "mdict"
+harness = false
