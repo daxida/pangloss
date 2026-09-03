@@ -8,6 +8,7 @@ use std::{
 use anyhow::Result;
 #[allow(unused)]
 use flate2::{Compression, write::ZlibEncoder};
+use rayon::prelude::*;
 
 use crate::{
     Context, Writer,
@@ -16,7 +17,7 @@ use crate::{
         ATTR_ORDER, COMPRESSION_HEADER_0, COMPRESSION_HEADER_2, CompressionKind, MdictFormat,
         default_attr,
     },
-    glossary::{DataEntry, Glossary, GlossaryInfo, HtmlConverter},
+    glossary::{DataEntry, Entry, Glossary, GlossaryInfo, HtmlConverter},
     utils::escape_html,
 };
 
@@ -25,8 +26,6 @@ impl Writer for MdictFormat {
         write_with_context(path, glossary, ctx, self.compression)
     }
 }
-
-type Pairs = Vec<(String, String)>;
 
 fn write_with_context(
     path: &Path,
@@ -39,10 +38,11 @@ fn write_with_context(
 
     write_header(&mut writer, &glossary.info)?;
 
-    let pairs = collect_pairs(glossary);
+    let keys = collect_keys(glossary);
+    let (records, offsets) = build_records(glossary, &keys);
 
-    write_key_blocks(&mut writer, &pairs, compression)?;
-    write_record_blocks(&mut writer, &pairs, compression)?;
+    write_key_blocks(&mut writer, &keys, &offsets, compression)?;
+    write_record_blocks(&mut writer, &records, keys.len(), compression)?;
 
     // The resources go in the companion .mdd, including css
     // (even though we support reading the css files standalone)
@@ -195,53 +195,83 @@ fn write_header<W: Write>(writer: &mut W, info: &GlossaryInfo) -> Result<()> {
     Ok(())
 }
 
-// Collect (term, definition) pairs including alts
-fn collect_pairs(glossary: &Glossary) -> Pairs {
-    let mut pairs: Vec<_> = Vec::new();
-    let converter = HtmlConverter::new(glossary);
+/// What a key points at: an entry to render, or the headword an alt redirects to.
+enum Record<'a> {
+    Entry(&'a Entry),
+    Link(&'a str), // @@@LINK=...
+}
+
+/// The keys, sorted.
+fn collect_keys(glossary: &Glossary) -> Vec<(&str, Record<'_>)> {
+    let alts: usize = glossary.entries.iter().map(|e| e.alts().len()).sum();
+    let mut keys = Vec::with_capacity(glossary.entries.len() + alts);
 
     for entry in &glossary.entries {
-        let term = entry.term().to_string();
-        let defi = converter.convert(entry.definition());
         // Alts become @@@LINK entries
         for alt in entry.alts() {
-            pairs.push((alt.term().to_string(), format!("@@@LINK={term}")));
+            keys.push((alt.term(), Record::Link(entry.term())));
         }
-        pairs.push((term, defi));
+        keys.push((entry.term(), Record::Entry(entry)));
     }
 
     // Sort by term (MDX keys must be sorted)
-    pairs.sort_by_cached_key(|(term, _)| {
+    keys.sort_by_cached_key(|(term, _)| {
         term.trim_start_matches(|c: char| !c.is_alphanumeric())
             .to_lowercase()
     });
 
-    pairs
+    keys
+}
+
+/// The record block, and where each key's bytes start in it.
+fn build_records(glossary: &Glossary, keys: &[(&str, Record<'_>)]) -> (Vec<u8>, Vec<u64>) {
+    let converter = HtmlConverter::new(glossary);
+    let mut records = Vec::new();
+    let mut offsets = Vec::with_capacity(keys.len());
+    let mut rendered = String::with_capacity(4096);
+
+    for (_, record) in keys {
+        offsets.push(records.len() as u64);
+        match record {
+            Record::Entry(entry) => {
+                rendered.clear();
+                converter.write_into(entry.definition(), &mut rendered);
+                records.extend_from_slice(rendered.as_bytes());
+            }
+            Record::Link(term) => {
+                records.extend_from_slice(b"@@@LINK=");
+                records.extend_from_slice(term.as_bytes());
+            }
+        }
+        records.push(0); // null terminator
+    }
+
+    (records, offsets)
 }
 
 fn write_key_blocks<W: Write>(
     writer: &mut W,
-    pairs: &[(String, String)],
+    keys: &[(&str, Record<'_>)],
+    offsets: &[u64],
     compression: CompressionKind,
 ) -> Result<()> {
     // Build one key block containing all entries
-    let mut block_data = Vec::new();
-    let mut record_offset = 0u64;
-    for (term, defi) in pairs {
-        block_data.extend_from_slice(&record_offset.to_be_bytes());
+    let size: usize = keys.iter().map(|(term, _)| term.len() + 9).sum();
+    let mut block_data = Vec::with_capacity(size);
+    for ((term, _), offset) in keys.iter().zip(offsets) {
+        block_data.extend_from_slice(&offset.to_be_bytes());
         block_data.extend_from_slice(term.as_bytes());
         block_data.push(0); // null terminator
-        record_offset += defi.len() as u64 + 1; // +1 for null terminator
     }
 
     let compressed = compress_block(&block_data, compression)?;
 
-    let first_term = pairs.first().map_or("", |(t, _)| t.as_str());
-    let last_term = pairs.last().map_or("", |(t, _)| t.as_str());
+    let first_term = keys.first().map_or("", |(term, _)| *term);
+    let last_term = keys.last().map_or("", |(term, _)| *term);
 
     // Key block info: one entry per block
     let mut info = Vec::new();
-    info.extend_from_slice(&(pairs.len() as u64).to_be_bytes()); // num keywords
+    info.extend_from_slice(&(keys.len() as u64).to_be_bytes()); // num keywords
     // first key
     info.extend_from_slice(&(first_term.len() as u16).to_be_bytes());
     info.extend_from_slice(first_term.as_bytes());
@@ -260,7 +290,7 @@ fn write_key_blocks<W: Write>(
     let header_buf = {
         let mut h = Vec::new();
         h.extend_from_slice(&1u64.to_be_bytes()); // num_blocks
-        h.extend_from_slice(&(pairs.len() as u64).to_be_bytes()); // num_entries
+        h.extend_from_slice(&(keys.len() as u64).to_be_bytes()); // num_entries
         h.extend_from_slice(&(info.len() as u64).to_be_bytes()); // decompressed info size
         h.extend_from_slice(&(info_compressed.len() as u64).to_be_bytes()); // compressed info size
         h.extend_from_slice(&(compressed.len() as u64).to_be_bytes()); // key block size
@@ -276,32 +306,38 @@ fn write_key_blocks<W: Write>(
     Ok(())
 }
 
+/// Records are cut into blocks of this size before (parallel) compressing.
+const RECORD_BLOCK_SIZE: usize = 4 << 20;
+
 fn write_record_blocks<W: Write>(
     writer: &mut W,
-    pairs: &[(String, String)],
+    records: &[u8],
+    count: usize,
     compression: CompressionKind,
 ) -> Result<()> {
-    // Build one record block containing all definitions
-    let mut block_data = Vec::new();
-    for (_, defi) in pairs {
-        block_data.extend_from_slice(defi.as_bytes());
-        block_data.push(0); // null terminator
+    let blocks: Vec<&[u8]> = records.chunks(RECORD_BLOCK_SIZE).collect();
+    let compressed: Vec<Vec<u8>> = blocks
+        .par_iter()
+        .map(|block| compress_block(block, compression))
+        .collect::<Result<_>>()?;
+
+    let blocks_len: usize = compressed.iter().map(Vec::len).sum();
+
+    // Record section header (4 x u64)
+    writer.write_all(&(compressed.len() as u64).to_be_bytes())?; // num_blocks
+    writer.write_all(&(count as u64).to_be_bytes())?; // num_entries
+    // info size: two u64 per block descriptor
+    writer.write_all(&((compressed.len() * 16) as u64).to_be_bytes())?;
+    writer.write_all(&(blocks_len as u64).to_be_bytes())?;
+
+    // One descriptor per block: compressed + decompressed sizes
+    for (block, compressed) in blocks.iter().zip(&compressed) {
+        writer.write_all(&(compressed.len() as u64).to_be_bytes())?;
+        writer.write_all(&(block.len() as u64).to_be_bytes())?;
     }
-
-    let compressed = compress_block(&block_data, compression)?;
-
-    // Record block info header (4 x u64)
-    writer.write_all(&1u64.to_be_bytes())?; // num_blocks
-    writer.write_all(&(pairs.len() as u64).to_be_bytes())?; // num_entries
-    writer.write_all(&(16u64).to_be_bytes())?; // info size (1 block = 2 x u64)
-    // writer.write_all(&(block_data.len() as u64).to_be_bytes())?; // total decompressed size
-    writer.write_all(&(compressed.len() as u64).to_be_bytes())?; // blocks_len — total size of rec_blocks
-
-    // One record block descriptor: compressed + decompressed sizes
-    writer.write_all(&(compressed.len() as u64).to_be_bytes())?;
-    writer.write_all(&(block_data.len() as u64).to_be_bytes())?;
-
-    writer.write_all(&compressed)?;
+    for compressed in &compressed {
+        writer.write_all(compressed)?;
+    }
 
     Ok(())
 }
