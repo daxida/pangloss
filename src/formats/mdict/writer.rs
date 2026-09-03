@@ -223,9 +223,41 @@ fn collect_keys(glossary: &Glossary) -> Vec<(&str, Record<'_>)> {
     keys
 }
 
+/// Below this many entries a render chunk is not worth handing to another core.
+const MIN_RECORD_CHUNK_LEN: usize = 8192;
+
 /// The record block, and where each key's bytes start in it.
+///
+/// Rendering dominates the write, so chunks of keys are rendered in parallel
+/// and stitched back together, rebasing each chunk's offsets onto the whole.
 fn build_records(glossary: &Glossary, keys: &[(&str, Record<'_>)]) -> (Vec<u8>, Vec<u64>) {
     let converter = HtmlConverter::new(glossary);
+
+    // Enough chunks to keep every core busy even when entry sizes are uneven,
+    // but never so few entries per chunk that rayon costs more than it saves.
+    let chunk_len = keys
+        .len()
+        .div_ceil(rayon::current_num_threads() * 4)
+        .max(MIN_RECORD_CHUNK_LEN);
+    let chunks: Vec<(Vec<u8>, Vec<u64>)> = keys
+        .par_chunks(chunk_len)
+        .map(|chunk| render_chunk(&converter, chunk))
+        .collect();
+
+    let total = chunks.iter().map(|(records, _)| records.len()).sum();
+    let mut records = Vec::with_capacity(total);
+    let mut offsets = Vec::with_capacity(keys.len());
+    for (chunk_records, chunk_offsets) in chunks {
+        let base = records.len() as u64;
+        offsets.extend(chunk_offsets.into_iter().map(|offset| offset + base));
+        records.extend_from_slice(&chunk_records);
+    }
+
+    (records, offsets)
+}
+
+/// Render one chunk of keys, with offsets relative to the chunk's own start.
+fn render_chunk(converter: &HtmlConverter, keys: &[(&str, Record<'_>)]) -> (Vec<u8>, Vec<u64>) {
     let mut records = Vec::new();
     let mut offsets = Vec::with_capacity(keys.len());
     let mut rendered = String::with_capacity(4096);
