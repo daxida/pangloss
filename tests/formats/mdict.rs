@@ -162,16 +162,16 @@ fn layout(sizes: &[usize]) -> (Vec<u64>, Vec<u64>) {
 }
 
 // goldendict-ng reads a record out of a single decompressed block, so a block
-// should end where a record starts. TODO: it ends at 4 MiB, wherever that falls.
+// has to end where a record starts.
 #[test]
-fn record_blocks_are_cut_inside_a_record() {
+fn record_blocks_end_on_a_record_start() {
     let (offsets, sizes) = layout(&[100_000; 80]);
-    assert!(!offsets.contains(&sizes[0]));
+    assert!(offsets.contains(&sizes[0]));
 }
 
-// TODO: a record bigger than a block is split over two blocks.
+// Even when the record that fills the block is bigger than the block.
 #[test]
-fn a_record_bigger_than_a_block_is_split() {
-    let (_, sizes) = layout(&[10, 5 << 20, 10]);
-    assert_eq!(sizes.len(), 2);
+fn a_record_bigger_than_a_block_is_not_split() {
+    let (offsets, sizes) = layout(&[10, 5 << 20, 10]);
+    assert!(offsets.contains(&sizes[0]));
 }

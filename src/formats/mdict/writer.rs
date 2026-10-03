@@ -42,7 +42,7 @@ fn write_with_context(
     let (records, offsets) = build_records(glossary, &keys);
 
     write_key_blocks(&mut writer, &keys, &offsets, compression)?;
-    write_record_blocks(&mut writer, &records, keys.len(), compression)?;
+    write_record_blocks(&mut writer, &records, &offsets, compression)?;
 
     // The resources go in the companion .mdd, including css
     // (even though we support reading the css files standalone)
@@ -338,16 +338,29 @@ fn write_key_blocks<W: Write>(
     Ok(())
 }
 
-/// Records are cut into blocks of this size before (parallel) compressing.
+/// Records are cut into blocks of about this size before (parallel) compressing.
 const RECORD_BLOCK_SIZE: usize = 4 << 20;
 
 fn write_record_blocks<W: Write>(
     writer: &mut W,
     records: &[u8],
-    count: usize,
+    offsets: &[u64],
     compression: CompressionKind,
 ) -> Result<()> {
-    let blocks: Vec<&[u8]> = records.chunks(RECORD_BLOCK_SIZE).collect();
+    // goldendict-ng reads a record out of a single decompressed block, so a block
+    // can only end where a record starts: once it is full, at the next start.
+    let mut blocks: Vec<&[u8]> = Vec::new();
+    let mut start = 0;
+    for &offset in offsets {
+        let offset = offset as usize;
+        if offset - start >= RECORD_BLOCK_SIZE {
+            blocks.push(&records[start..offset]);
+            start = offset;
+        }
+    }
+    if start < records.len() {
+        blocks.push(&records[start..]);
+    }
     let compressed: Vec<Vec<u8>> = blocks
         .par_iter()
         .map(|block| compress_block(block, compression))
@@ -357,7 +370,7 @@ fn write_record_blocks<W: Write>(
 
     // Record section header (4 x u64)
     writer.write_all(&(compressed.len() as u64).to_be_bytes())?; // num_blocks
-    writer.write_all(&(count as u64).to_be_bytes())?; // num_entries
+    writer.write_all(&(offsets.len() as u64).to_be_bytes())?; // num_entries
     // info size: two u64 per block descriptor
     writer.write_all(&((compressed.len() * 16) as u64).to_be_bytes())?;
     writer.write_all(&(blocks_len as u64).to_be_bytes())?;
