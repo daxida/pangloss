@@ -117,3 +117,61 @@ fn do_undo_picture_with_mdd() {
         glossary.data_entries[0].bytes()
     );
 }
+
+/// Where each record starts and the size of each record block, read from an
+/// uncompressed .mdx holding one entry per given size.
+fn layout(sizes: &[usize]) -> (Vec<u64>, Vec<u64>) {
+    use pangloss::{Definition, Entry, Glossary};
+
+    let glossary = Glossary {
+        entries: sizes
+            .iter()
+            .enumerate()
+            .map(|(i, &n)| Entry::new(format!("term{i:03}"), Definition::Html("x".repeat(n))))
+            .collect(),
+        ..Default::default()
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("out.mdx");
+    MdictFormat::new(CompressionKind::None)
+        .write(&path, &glossary)
+        .unwrap();
+    let bytes = std::fs::read(path).unwrap();
+
+    let u64_at = |pos: usize| u64::from_be_bytes(bytes[pos..pos + 8].try_into().unwrap());
+    let header_len = u32::from_be_bytes(bytes[..4].try_into().unwrap()) as usize;
+    let key_header = 4 + header_len + 4;
+    let key_block = key_header + 40 + 4 + u64_at(key_header + 24) as usize;
+    let key_block_len = u64_at(key_header + 32) as usize;
+
+    // The key block is an offset then a null terminated term, after an 8 byte block header.
+    let keys = &bytes[key_block + 8..key_block + key_block_len];
+    let mut offsets = Vec::new();
+    let mut pos = 0;
+    while pos < keys.len() {
+        offsets.push(u64::from_be_bytes(keys[pos..pos + 8].try_into().unwrap()));
+        pos += 8 + keys[pos + 8..].iter().position(|&b| b == 0).unwrap() + 1;
+    }
+
+    let records = key_block + key_block_len;
+    let blocks = u64_at(records) as usize;
+    let block_sizes = (0..blocks)
+        .map(|i| u64_at(records + 32 + 16 * i + 8))
+        .collect();
+    (offsets, block_sizes)
+}
+
+// goldendict-ng reads a record out of a single decompressed block, so a block
+// should end where a record starts. TODO: it ends at 4 MiB, wherever that falls.
+#[test]
+fn record_blocks_are_cut_inside_a_record() {
+    let (offsets, sizes) = layout(&[100_000; 80]);
+    assert!(!offsets.contains(&sizes[0]));
+}
+
+// TODO: a record bigger than a block is split over two blocks.
+#[test]
+fn a_record_bigger_than_a_block_is_split() {
+    let (_, sizes) = layout(&[10, 5 << 20, 10]);
+    assert_eq!(sizes.len(), 2);
+}
