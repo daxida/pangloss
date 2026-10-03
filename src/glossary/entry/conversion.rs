@@ -41,11 +41,17 @@ impl HtmlConverter {
 
 fn leading_links(css_files: &[PathBuf]) -> String {
     css_files.iter().fold(String::new(), |mut acc, fname| {
-        let _ = write!(
-            acc,
-            "<link rel='stylesheet' href='{}' type='text/css'>",
-            fname.display()
-        );
+        // `type` defaults to text/css, and the quotes are only needed when the
+        // name has characters that would end an unquoted attribute value.
+        let name = fname.display().to_string();
+        let plain = name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '/'));
+        let _ = if plain {
+            write!(acc, "<link rel=stylesheet href={name}>")
+        } else {
+            write!(acc, "<link rel=stylesheet href='{name}'>")
+        };
         acc
     })
 }
@@ -468,5 +474,19 @@ mod tests {
         ] {
             assert_eq!(tag_of(html), NTag::Div, "{html} should map to a div");
         }
+    }
+
+    #[test]
+    fn links_are_unquoted_only_when_safe() {
+        let files = [PathBuf::from("styles.css"), PathBuf::from("my style.css")];
+        assert_eq!(
+            leading_links(&files),
+            "<link rel=stylesheet href=styles.css><link rel=stylesheet href='my style.css'>"
+        );
+    }
+
+    #[test]
+    fn no_css_files_no_links() {
+        assert_eq!(leading_links(&[]), "");
     }
 }
