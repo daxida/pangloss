@@ -7,8 +7,8 @@ use zip::{ZipWriter, write::SimpleFileOptions};
 
 use crate::{
     Context, Definition, Glossary, ReaderFormat, Writer,
+    css::rewrite_css_classes,
     formats::yomitan::{TermBankEntry, YomitanFormat, model::YomitanDefinition},
-    transform::rewrite_css_classes,
 };
 
 impl Writer for YomitanFormat {

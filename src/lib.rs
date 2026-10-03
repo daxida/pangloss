@@ -6,6 +6,7 @@ mod encryption;
 mod utils;
 
 pub mod cli;
+pub mod css;
 pub mod formats;
 pub mod transform;
 
