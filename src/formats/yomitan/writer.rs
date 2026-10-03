@@ -7,7 +7,7 @@ use zip::{ZipWriter, write::SimpleFileOptions};
 
 use crate::{
     Context, Definition, Glossary, ReaderFormat, Writer,
-    css::rewrite_css_classes,
+    css::{concat_css_files, rewrite_css_classes},
     formats::yomitan::{TermBankEntry, YomitanFormat, model::YomitanDefinition},
 };
 
@@ -69,12 +69,7 @@ fn write_with_context(path: &Path, glossary: &Glossary, ctx: &Context) -> Result
     // Yomitan only accepts a single css file name 'styles.css', so we write
     // any css files of the Glossary to that destination.
     // https://github.com/yomidevs/yomitan/blob/master/ext/js/dictionary/dictionary-importer.js#L297
-    let css_bytes: Vec<_> = glossary
-        .data_entries
-        .iter()
-        .filter(|e| e.is_css())
-        .flat_map(|e| e.bytes().iter().copied()) // unfortunate copy
-        .collect();
+    let css_bytes = concat_css_files(glossary);
     if !css_bytes.is_empty() {
         zip.start_file("styles.css", options)?;
         // Transform css only if the Glossary came from a non-Yomitan reader.

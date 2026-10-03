@@ -6,6 +6,7 @@ use tracing_subscriber::{EnvFilter, fmt::format::FmtSpan};
 use pangloss::{
     Config, Context, DataEntry, Definition, Glossary, Reader, ReaderFormat, Writer, WriterFormat,
     cli::Cli,
+    css::merge_css_files,
     transform::{
         EntryTransformerBuilder, PreventDuplicateTerms, RemoveNewlines, ResolveMdictStyles,
     },
@@ -190,6 +191,12 @@ fn pre_write(glossary: &mut Glossary, args: &Cli) {
     // We don't want to break the roundtrip invariant
     if rformat == wformat {
         return;
+    }
+
+    // Mdict links every css file from every entry. Only Yomitan definitions carry no
+    // links of their own that merging could leave dangling.
+    if rformat == ReaderFormat::Yomitan && wformat == WriterFormat::Mdict {
+        merge_css_files(glossary);
     }
 
     let mut builder = EntryTransformerBuilder::default();
