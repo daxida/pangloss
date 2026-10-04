@@ -1,15 +1,15 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
-use crate::scan::{DictionaryFiles, single_file};
+use crate::scan::{DictionaryFiles, companion};
 
+/// Every file is named after the .ifo, as koreader expects.
 pub struct StardictFiles {
     pub ifo: PathBuf,
     pub idx: PathBuf,
     pub dict: PathBuf,
     pub syn: Option<PathBuf>,
-    // Can there be more than one?
     pub css: Option<PathBuf>,
 }
 
@@ -17,12 +17,16 @@ impl DictionaryFiles for StardictFiles {
     const MAIN_EXTENSION: &'static str = "ifo";
 
     fn find(ifo: &Path) -> Result<Self> {
+        let required = |suffixes: &[&str]| {
+            companion(ifo, suffixes)
+                .with_context(|| format!("No .{} found for {}", suffixes[0], ifo.display()))
+        };
         Ok(Self {
             ifo: ifo.to_path_buf(),
-            idx: single_file(ifo, &["*.idx", "*.idx.dz", "*.idx.gz"])?,
-            dict: single_file(ifo, &["*.dict", "*.dict.dz"])?,
-            syn: single_file(ifo, &["*.syn", "*.syn.dz", "*.syn.gz"]).ok(),
-            css: single_file(ifo, &["*.css"]).ok(),
+            idx: required(&["idx", "idx.gz", "idx.dz"])?,
+            dict: required(&["dict", "dict.dz"])?,
+            syn: companion(ifo, &["syn", "syn.gz", "syn.dz"]),
+            css: companion(ifo, &["css"]),
         })
     }
 }

@@ -19,7 +19,7 @@ pub trait DictionaryFiles: Sized {
     fn scan(main: &Path) -> Result<Self> {
         if main
             .extension()
-            .is_none_or(|ext| ext != Self::MAIN_EXTENSION)
+            .is_none_or(|ext| !ext.eq_ignore_ascii_case(Self::MAIN_EXTENSION))
         {
             bail!(
                 "Expected a file with .{} extension but got {}",
@@ -31,25 +31,17 @@ pub trait DictionaryFiles: Sized {
     }
 }
 
-/// The only file beside `main` matching one of the glob `patterns`.
-pub fn single_file(main: &Path, patterns: &[&str]) -> Result<PathBuf> {
-    let dir = parent_dir(main);
-    let mut matches = Vec::new();
-    for pattern in patterns {
-        for entry in glob::glob(&format!("{}/{pattern}", dir.display()))? {
-            matches.push(entry?);
-        }
-    }
-    if matches.len() != 1 {
-        let (patterns, dir, n) = (patterns.join("/"), dir.display(), matches.len());
-        bail!("Expected exactly one {patterns} file in {dir}, found {n}");
-    }
-    Ok(matches.remove(0))
+/// The first existing `foo.<suffix>` beside `foo.<ext>`.
+pub fn companion(main: &Path, suffixes: &[&str]) -> Option<PathBuf> {
+    suffixes
+        .iter()
+        .map(|suffix| main.with_extension(suffix))
+        .find(|path| path.is_file())
 }
 
-/// Every file beside `main`, unordered.
+/// Every file beside `main`, unordered, spelled like `main` so they compare with it.
 pub fn siblings(main: &Path) -> Result<Vec<PathBuf>> {
     fs::read_dir(parent_dir(main))?
-        .map(|entry| Ok(entry?.path()))
+        .map(|entry| Ok(main.with_file_name(entry?.file_name())))
         .collect()
 }

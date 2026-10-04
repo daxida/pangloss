@@ -71,7 +71,7 @@ impl Writer for WriterFormat {
 
 impl ReaderFormat {
     pub fn try_from_path(path: &Path) -> Option<Self> {
-        match path.extension()?.to_str()? {
+        match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
             "txt" => Some(Self::Text),
             "mdx" => Some(Self::Mdict),
             "ifo" => Some(Self::Stardict),
@@ -84,7 +84,7 @@ impl ReaderFormat {
 
 impl WriterFormat {
     pub fn try_from_path(path: &Path) -> Option<Self> {
-        match path.extension()?.to_str()? {
+        match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
             "txt" => Some(Self::Text),
             "mdx" => Some(Self::Mdict),
             "ifo" => Some(Self::Stardict),
