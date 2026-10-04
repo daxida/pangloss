@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs,
-    io::{BufReader, Cursor, Read},
+    io::{self, BufReader, Cursor, Read},
     path::Path,
     sync::LazyLock,
 };
@@ -16,9 +16,11 @@ use crate::{
     encryption::{adler32, fast_decrypt, ripemd128},
     formats::mdict::{
         COMPRESSION_HEADER_0, COMPRESSION_HEADER_2, Encoding, EncryptionKind, MdictFormat,
+        files::MdictFiles,
     },
     glossary::{AltEntry, Entry, Glossary, GlossaryInfo, GlossaryMetadata},
-    utils::{parent_dir, unescape_html},
+    scan::DictionaryFiles,
+    utils::unescape_html,
 };
 
 impl Reader for MdictFormat {
@@ -28,14 +30,9 @@ impl Reader for MdictFormat {
 }
 
 fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
-    if path.extension().and_then(|e| e.to_str()) != Some("mdx") {
-        bail!(
-            "Expected a file with .mdx extension but got {}",
-            path.display()
-        );
-    }
+    let files = MdictFiles::scan(path)?;
 
-    let file = fs::File::open(path)?;
+    let file = fs::File::open(&files.mdx)?;
     let mut reader = BufReader::new(&file);
 
     let ParsedHeader {
@@ -50,27 +47,13 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         ..Default::default()
     };
 
-    // TODO: abstract the file scanning from the readers
-    let mut data_entries = Vec::new();
-    for entry in fs::read_dir(parent_dir(path))? {
-        let entry = entry?;
-        let path = entry.path();
-        let extension = path.extension().and_then(|e| e.to_str());
-        let fname = path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
-
-        match extension {
-            Some("mdx") => (),
-            Some("css") => {
-                let content = fs::read(path)?;
-                data_entries.push(DataEntry::new(fname, content));
-            }
-            Some("mdd") => data_entries.extend(read_mdd(&path)?),
-            _ => tracing::warn!("Ignoring unsupported file: {fname}"),
-        }
+    let mut data_entries = files
+        .css
+        .iter()
+        .map(|css| DataEntry::read(css))
+        .collect::<io::Result<Vec<_>>>()?;
+    for mdd_path in &files.mdd {
+        data_entries.extend(read_mdd(mdd_path)?);
     }
 
     let keys = read_keys(&mut reader, encoding, encryption)?;

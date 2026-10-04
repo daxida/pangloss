@@ -2,6 +2,7 @@
 
 use anyhow::{Context, Result};
 
+mod files;
 mod reader;
 mod writer;
 

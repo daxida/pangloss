@@ -1,38 +1,13 @@
-use std::{
-    collections::HashMap,
-    fs,
-    io::Read,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, fs, io::Read, path::Path};
 
 use anyhow::{Result, bail};
 
 use crate::{
     Context, DataEntry, Reader,
-    formats::stardict::{StardictFormat, sts::SameTypeSequence},
+    formats::stardict::{StardictFormat, files::StardictFiles, sts::SameTypeSequence},
     glossary::{AltEntry, Entry, Glossary, GlossaryInfo},
-    utils::parent_dir,
+    scan::DictionaryFiles,
 };
-
-fn get_single_file(path: &Path, patterns: &[&str]) -> Result<PathBuf> {
-    let mut matches = Vec::new();
-    for pattern in patterns {
-        let glob = format!("{}/{}", path.display(), pattern);
-        for entry in glob::glob(&glob)? {
-            matches.push(entry?);
-        }
-    }
-    match matches.len() {
-        1 => Ok(matches.remove(0)),
-        0 => bail!("No {} file found in {}", patterns.join("/"), path.display()),
-        n => bail!(
-            "Expected exactly one {} file in {}, found {}",
-            patterns.join("/"),
-            path.display(),
-            n
-        ),
-    }
-}
 
 impl Reader for StardictFormat {
     fn read_with_context(&self, path: &Path, ctx: &Context) -> Result<Glossary> {
@@ -41,15 +16,9 @@ impl Reader for StardictFormat {
 }
 
 fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
-    if path.extension().and_then(|e| e.to_str()) != Some("ifo") {
-        bail!(
-            "Expected a file with .ifo extension but got {}",
-            path.display()
-        );
-    }
-    let parent = parent_dir(path);
+    let files = StardictFiles::scan(path)?;
 
-    let info = read_ifo_file(path)?;
+    let info = read_ifo_file(&files.ifo)?;
     let sts = SameTypeSequence::from_info(&info);
 
     // In theory, we only care about 32
@@ -59,28 +28,22 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         Some(other) => bail!("Invalid idxoffsetbits value: {other}"),
     };
 
-    let idx_path = get_single_file(parent, &["*.idx", "*.idx.dz", "*.idx.gz"])?;
-    let idx = read_idx_file(&idx_path, is_large_file)?;
+    let idx = read_idx_file(&files.idx, is_large_file)?;
 
-    let dict_path = get_single_file(parent, &["*.dict", "*.dict.dz"])?;
-
-    let syn = if let Ok(syn_path) = get_single_file(parent, &["*.syn", "*.syn.dz", "*.syn.gz"]) {
-        read_syn_file(&syn_path, idx.len())?
+    let syn = if let Some(syn_path) = &files.syn {
+        read_syn_file(syn_path, idx.len())?
     } else {
         tracing::info!("No synonym file found.");
         HashMap::new()
     };
 
-    let entries = read_entries(sts, &idx, &syn, &dict_path)?;
+    let entries = read_entries(sts, &idx, &syn, &files.dict)?;
 
-    // Can there be more than one?
-    let mut data_entries = Vec::new();
-    if let Ok(css_path) = get_single_file(parent, &["*.css"])
-        && let Ok(content) = fs::read(&css_path)
-    {
-        let fname = css_path.file_name().unwrap().to_string_lossy().to_string();
-        data_entries.push(DataEntry::new(fname, content));
-    }
+    let data_entries = files
+        .css
+        .iter()
+        .filter_map(|css| DataEntry::read(css).ok())
+        .collect();
 
     Ok(Glossary {
         entries,

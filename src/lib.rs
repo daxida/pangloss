@@ -3,6 +3,7 @@ use std::path::Path;
 use anyhow::Result;
 
 mod encryption;
+mod scan;
 mod utils;
 
 pub mod cli;
