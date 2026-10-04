@@ -1,45 +1,22 @@
 //! Reader for [Yomitan](https://github.com/yomidevs/yomitan) dictionary archives.
 
-use std::{collections::HashMap, fs::File, io::Read, path::Path, sync::LazyLock};
+use std::{collections::HashMap, path::Path};
 
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Result, bail};
 use indexmap::IndexMap;
 use rayon::prelude::*;
-use regex::Regex;
 use serde_json::Value;
-use zip::ZipArchive;
 
 use crate::{
     Context, Reader,
     formats::yomitan::{
         YomitanFormat,
+        files::YomitanFiles,
         model::{TagBank, TermBank, TermBankEntry, TermMetaBank, YomitanDefinition},
     },
     glossary::{AltEntry, DataEntry, Definition, Entry, Glossary, GlossaryInfo, GlossaryMetadata},
+    scan::DictionaryFiles,
 };
-
-static TERM_BANK_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^term_bank_(\d+)\.json$").unwrap());
-static TERM_META_BANK_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^term_meta_bank_(\d+)\.json$").unwrap());
-static TAG_BANK_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^tag_bank_(\d+)\.json$").unwrap());
-static KANJI_BANK_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^kanji_bank_(\d+)\.json$").unwrap());
-static KANJI_META_BANK_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^kanji_meta_bank_(\d+)\.json$").unwrap());
-
-// note that kanji_banks and kanji_meta_banks are skipped
-struct ZipContents {
-    // names and bytes
-    term_banks: Vec<(String, Vec<u8>)>,
-    term_meta_banks: Vec<(String, Vec<u8>)>,
-    tag_banks: Vec<(String, Vec<u8>)>,
-    // bytes of index.json
-    index: Vec<u8>,
-    // media file names (including styles.css etc.) and their bytes
-    media: Vec<(String, Vec<u8>)>,
-}
 
 impl Reader for YomitanFormat {
     fn read_with_context(&self, path: &Path, ctx: &Context) -> Result<Glossary> {
@@ -48,20 +25,20 @@ impl Reader for YomitanFormat {
 }
 
 fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
-    let file = File::open(path)?;
-    let mut zip = ZipArchive::new(file)?;
+    let (mut source, files) = YomitanFiles::scan(path)?;
+    let info = parse_index_file(&source.read(&files.index)?)?;
+    let mut read_all = |names: &[String]| -> Result<Vec<(String, Vec<u8>)>> {
+        names
+            .iter()
+            .map(|name| Ok((name.clone(), source.read(name)?)))
+            .collect()
+    };
 
-    let zip_contents = collect_zip_contents(&mut zip)?;
-    let info = parse_index_file(&zip_contents.index)?;
-
-    let (mut entries, inflections) = read_term_banks(&zip_contents.term_banks)?;
+    let (mut entries, inflections) = read_term_banks(&read_all(&files.term_banks)?)?;
     attach_inflections(&mut entries, inflections);
-    let term_meta_bank = read_term_meta_banks(&zip_contents.term_meta_banks)?;
-    let tag_bank = read_tag_banks(&zip_contents.tag_banks)?;
+    let term_meta_bank = read_term_meta_banks(&read_all(&files.term_meta_banks)?)?;
+    let tag_bank = read_tag_banks(&read_all(&files.tag_banks)?)?;
 
-    if !zip_contents.media.is_empty() {
-        tracing::debug!("Found {} media files", zip_contents.media.len());
-    }
     tracing::debug!("Found {} term meta bank entries", term_meta_bank.len());
     tracing::debug!("Found {} tag bank entries", tag_bank.len());
 
@@ -77,8 +54,8 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         ..Default::default()
     };
 
-    let data_entries = zip_contents
-        .media
+    tracing::debug!("Found {} media files", files.media.len());
+    let data_entries = read_all(&files.media)?
         .into_iter()
         .map(|(fname, bytes)| DataEntry::new(fname, bytes))
         .collect();
@@ -88,72 +65,6 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         data_entries,
         info,
         metadata,
-    })
-}
-
-// For index and styles file, store the bytes in memory.
-// For banks, collect the number (to sort them) and name.
-fn collect_zip_contents(zip: &mut ZipArchive<File>) -> Result<ZipContents> {
-    let mut term_banks = Vec::new();
-    let mut term_meta_banks = Vec::new();
-    let mut tag_banks = Vec::new();
-    let mut media = Vec::new();
-    let mut index = None;
-    let mut buf = Vec::new();
-
-    for i in 0..zip.len() {
-        let mut file = zip.by_index(i)?;
-        let name = file.name().to_string();
-
-        if let Some(captures) = TERM_BANK_RE.captures(&name) {
-            let n = captures.get(1).unwrap().as_str().parse::<u32>()?;
-            file.read_to_end(&mut buf)?;
-            term_banks.push((n, name, std::mem::take(&mut buf)));
-        } else if let Some(captures) = TERM_META_BANK_RE.captures(&name) {
-            let n = captures.get(1).unwrap().as_str().parse::<u32>()?;
-            file.read_to_end(&mut buf)?;
-            term_meta_banks.push((n, name, std::mem::take(&mut buf)));
-        } else if let Some(captures) = TAG_BANK_RE.captures(&name) {
-            let n = captures.get(1).unwrap().as_str().parse::<u32>()?;
-            file.read_to_end(&mut buf)?;
-            tag_banks.push((n, name, std::mem::take(&mut buf)));
-        } else if KANJI_BANK_RE.captures(&name).is_some()
-            || KANJI_META_BANK_RE.captures(&name).is_some()
-        {
-            tracing::warn!("Unsupported kanji file in zip: {name}");
-        } else if name == "index.json" {
-            file.read_to_end(&mut buf)?;
-            index = Some(std::mem::take(&mut buf));
-        } else if name.ends_with("json") {
-            tracing::warn!("Unrecognized json file in zip: {name}");
-        } else {
-            if name == "styles.css" {
-                tracing::debug!("Detected styles file: {name}");
-            }
-            file.read_to_end(&mut buf)?;
-            media.push((name, std::mem::take(&mut buf)));
-        }
-    }
-
-    term_banks.sort_by_key(|(n, _, _)| *n);
-    term_meta_banks.sort_by_key(|(n, _, _)| *n);
-    tag_banks.sort_by_key(|(n, _, _)| *n);
-
-    Ok(ZipContents {
-        term_banks: term_banks
-            .into_iter()
-            .map(|(_, name, bytes)| (name, bytes))
-            .collect(),
-        term_meta_banks: term_meta_banks
-            .into_iter()
-            .map(|(_, name, bytes)| (name, bytes))
-            .collect(),
-        tag_banks: tag_banks
-            .into_iter()
-            .map(|(_, name, bytes)| (name, bytes))
-            .collect(),
-        index: index.context("No index.json found in zip")?,
-        media,
     })
 }
 

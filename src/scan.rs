@@ -12,7 +12,7 @@ use zip::ZipArchive;
 use crate::utils::parent_dir;
 
 pub trait DictionaryFiles: Sized {
-    /// The file the user points at: `*.<ext>`, or an exact name.
+    /// The file the user points at: `*.<ext>`, or an exact name like "index.json".
     const MAIN: &'static str;
 
     /// `main` is the name of the file the user points at, `names` every file beside it.
@@ -70,12 +70,19 @@ impl Source {
         Ok(Self::Zip(archive))
     }
 
-    /// The names of every file, in the zip's order or unordered for a folder.
+    /// The names of every file (not folders), in the zip's order or unordered for a folder.
     pub fn names(&self) -> Result<Vec<String>> {
         match self {
-            Self::Dir(dir) => fs::read_dir(dir)?
-                .map(|entry| Ok(entry?.file_name().to_string_lossy().into_owned()))
-                .collect(),
+            Self::Dir(dir) => {
+                let mut names = Vec::new();
+                for entry in fs::read_dir(dir)? {
+                    let entry = entry?;
+                    if entry.path().is_file() {
+                        names.push(entry.file_name().to_string_lossy().into_owned());
+                    }
+                }
+                Ok(names)
+            }
             Self::Zip(archive) => Ok(archive
                 .file_names()
                 .filter(|name| !name.ends_with('/'))

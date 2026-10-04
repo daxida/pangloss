@@ -5,6 +5,7 @@
 // Pub because the Yomitan model is used as one of the definition kinds.
 pub(crate) mod model;
 
+mod files;
 mod reader;
 mod renderer;
 mod writer;

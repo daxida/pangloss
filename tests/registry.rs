@@ -2,7 +2,7 @@ use std::{io::Write, path::Path};
 
 use pangloss::{
     Entry, Glossary, Reader, ReaderFormat, WriterFormat,
-    formats::{mdict::MdictFormat, stardict::StardictFormat},
+    formats::{mdict::MdictFormat, stardict::StardictFormat, yomitan::YomitanFormat},
 };
 
 const FIXTURES: &str = "tests/fixtures/formats";
@@ -204,6 +204,20 @@ fn a_zipped_stardict_reads_like_an_unzipped_one() {
         .read(&Path::new(FIXTURES).join("stardict/02-syns/syns.ifo"))
         .unwrap();
     assert_eq!(terms(&zipped), terms(&unzipped));
+}
+
+#[test]
+fn an_unzipped_yomitan_reads_like_a_zipped_one() {
+    let zip = Path::new(FIXTURES).join("yomitan/011-base-with-gif.zip");
+    let dir = tempfile::tempdir().unwrap();
+    zip::ZipArchive::new(std::fs::File::open(&zip).unwrap())
+        .unwrap()
+        .extract(dir.path())
+        .unwrap();
+    let zipped = YomitanFormat.read(&zip).unwrap();
+    let unzipped = YomitanFormat.read(&dir.path().join("index.json")).unwrap();
+    assert_eq!(terms(&zipped), terms(&unzipped));
+    assert_eq!(data_names(&zipped), data_names(&unzipped));
 }
 
 #[test]
