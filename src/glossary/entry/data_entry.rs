@@ -1,6 +1,5 @@
 use std::{
     ffi::OsStr,
-    fs, io,
     path::{Path, PathBuf},
 };
 
@@ -22,12 +21,6 @@ impl DataEntry {
         //     tracing::warn!(fname = %fname.display(), "file does not exist");
         // }
         Self { fname, bytes }
-    }
-
-    /// Read a file from disk, keeping only its name.
-    pub fn read(path: &Path) -> io::Result<Self> {
-        let fname = path.file_name().unwrap_or_default();
-        Ok(Self::new(fname, fs::read(path)?))
     }
 
     pub fn fname(&self) -> &Path {

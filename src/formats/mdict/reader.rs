@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
-    fs,
-    io::{self, BufReader, Cursor, Read},
+    io::{BufReader, Cursor, Read},
     path::Path,
     sync::LazyLock,
 };
@@ -30,10 +29,9 @@ impl Reader for MdictFormat {
 }
 
 fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
-    let files = MdictFiles::scan(path)?;
+    let (source, files) = MdictFiles::scan(path)?;
 
-    let file = fs::File::open(&files.mdx)?;
-    let mut reader = BufReader::new(&file);
+    let mut reader = BufReader::new(source.open(&files.mdx)?);
 
     let ParsedHeader {
         attrs,
@@ -47,13 +45,12 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         ..Default::default()
     };
 
-    let mut data_entries = files
-        .css
-        .iter()
-        .map(|css| DataEntry::read(css))
-        .collect::<io::Result<Vec<_>>>()?;
-    for mdd_path in &files.mdd {
-        data_entries.extend(read_mdd(mdd_path)?);
+    let mut data_entries = Vec::new();
+    for css in &files.css {
+        data_entries.push(DataEntry::new(css, source.read(css)?));
+    }
+    for mdd in &files.mdd {
+        data_entries.extend(read_mdd(source.open(mdd)?)?);
     }
 
     let keys = read_keys(&mut reader, encoding, encryption)?;
@@ -365,9 +362,8 @@ fn read_values<R: Read>(
     Ok(values)
 }
 
-pub fn read_mdd(path: &Path) -> Result<Vec<DataEntry>> {
-    let file = fs::File::open(path)?;
-    let mut reader = BufReader::new(&file);
+fn read_mdd(file: impl Read) -> Result<Vec<DataEntry>> {
+    let mut reader = BufReader::new(file);
 
     let attrs = read_mdd_header(&mut reader)?;
     let encryption = EncryptionKind::try_from(

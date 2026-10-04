@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, io::Read, path::Path};
+use std::{collections::HashMap, io::Read, path::Path};
 
 use anyhow::{Result, bail};
 
@@ -6,7 +6,7 @@ use crate::{
     Context, DataEntry, Reader,
     formats::stardict::{StardictFormat, files::StardictFiles, sts::SameTypeSequence},
     glossary::{AltEntry, Entry, Glossary, GlossaryInfo},
-    scan::DictionaryFiles,
+    scan::{DictionaryFiles, Source},
 };
 
 impl Reader for StardictFormat {
@@ -16,9 +16,10 @@ impl Reader for StardictFormat {
 }
 
 fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
-    let files = StardictFiles::scan(path)?;
+    let (source, files) = StardictFiles::scan(path)?;
+    let read = |name: &str| read_possibly_compressed(&source, name);
 
-    let info = read_ifo_file(&files.ifo)?;
+    let info = read_ifo_file(&String::from_utf8_lossy(&read(&files.ifo)?));
     let sts = SameTypeSequence::from_info(&info);
 
     // In theory, we only care about 32
@@ -28,21 +29,21 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         Some(other) => bail!("Invalid idxoffsetbits value: {other}"),
     };
 
-    let idx = read_idx_file(&files.idx, is_large_file)?;
+    let idx = read_idx_file(&read(&files.idx)?, is_large_file)?;
 
-    let syn = if let Some(syn_path) = &files.syn {
-        read_syn_file(syn_path, idx.len())?
+    let syn = if let Some(syn) = &files.syn {
+        read_syn_file(&read(syn)?, idx.len())?
     } else {
         tracing::info!("No synonym file found.");
         HashMap::new()
     };
 
-    let entries = read_entries(sts, &idx, &syn, &files.dict)?;
+    let entries = read_entries(sts, &idx, &syn, &read(&files.dict)?);
 
     let data_entries = files
         .css
         .iter()
-        .filter_map(|css| DataEntry::read(css).ok())
+        .flat_map(|css| source.read(css).map(|bytes| DataEntry::new(css, bytes)))
         .collect();
 
     Ok(Glossary {
@@ -57,9 +58,8 @@ fn read_entries(
     sts: SameTypeSequence,
     index_data: &[(Vec<u8>, u64, u32)],
     syn_dict: &HashMap<usize, Vec<String>>,
-    dict_path: &Path,
-) -> Result<Vec<Entry>> {
-    let dict_bytes = read_possibly_compressed(dict_path)?;
+    dict_bytes: &[u8],
+) -> Vec<Entry> {
     let mut entries = Vec::new();
 
     for (entry_index, (b_term, defi_offset, defi_size)) in index_data.iter().enumerate() {
@@ -87,11 +87,10 @@ fn read_entries(
         entries.push(Entry::new(term, sts.as_definition(defi)).with_alts(alts));
     }
 
-    Ok(entries)
+    entries
 }
 
-fn read_syn_file(syn_path: &Path, entry_count: usize) -> Result<HashMap<usize, Vec<String>>> {
-    let syn_bytes = read_possibly_compressed(syn_path)?;
+fn read_syn_file(syn_bytes: &[u8], entry_count: usize) -> Result<HashMap<usize, Vec<String>>> {
     let mut syn_dict: HashMap<usize, Vec<String>> = HashMap::new();
     let mut pos = 0;
 
@@ -129,8 +128,7 @@ fn read_syn_file(syn_path: &Path, entry_count: usize) -> Result<HashMap<usize, V
     Ok(syn_dict)
 }
 
-fn read_idx_file(path: &Path, is_large_file: bool) -> Result<Vec<(Vec<u8>, u64, u32)>> {
-    let idx_bytes = read_possibly_compressed(path)?;
+fn read_idx_file(idx_bytes: &[u8], is_large_file: bool) -> Result<Vec<(Vec<u8>, u64, u32)>> {
     let step = if is_large_file { 8 } else { 4 };
     let mut index_data = Vec::new();
     let mut pos = 0;
@@ -171,10 +169,10 @@ fn read_idx_file(path: &Path, is_large_file: bool) -> Result<Vec<(Vec<u8>, u64, 
 }
 
 // https://github.com/ilius/pyglossary/blob/master/pyglossary/plugins/stardict/reader.py#L140
-pub fn read_ifo_file(ifo_path: &Path) -> Result<GlossaryInfo> {
+fn read_ifo_file(text: &str) -> GlossaryInfo {
     let mut info = GlossaryInfo::new();
 
-    for line in fs::read_to_string(ifo_path)?.lines() {
+    for line in text.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() || trimmed == "StarDict's dict ifo file" {
             continue;
@@ -190,19 +188,18 @@ pub fn read_ifo_file(ifo_path: &Path) -> Result<GlossaryInfo> {
         info.insert(key, value.to_string());
     }
 
-    Ok(info)
+    info
 }
 
-fn read_possibly_compressed(path: &Path) -> Result<Vec<u8>> {
-    let ext = path.extension().and_then(|e| e.to_str());
-    match ext {
-        Some("dz" | "gz") => {
-            let file = fs::File::open(path)?;
-            let mut decoder = flate2::read::GzDecoder::new(file);
-            let mut buf = Vec::new();
-            decoder.read_to_end(&mut buf)?;
-            Ok(buf)
-        }
-        _ => Ok(fs::read(path)?),
+fn read_possibly_compressed(source: &Source, name: &str) -> Result<Vec<u8>> {
+    let mut reader = source.open(name)?;
+    if matches!(
+        Path::new(name).extension().and_then(|e| e.to_str()),
+        Some("dz" | "gz")
+    ) {
+        reader = Box::new(flate2::read::GzDecoder::new(reader));
     }
+    let mut buf = Vec::new();
+    reader.read_to_end(&mut buf)?;
+    Ok(buf)
 }
