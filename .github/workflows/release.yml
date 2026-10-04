@@ -1,0 +1,84 @@
+name: release
+
+# Push a tag to build the binaries and publish a GitHub release.
+# Bump `version` in Cargo.toml first, so the tag matches it:
+#
+#   git tag v0.1.10
+#   git push origin v0.1.10
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create-release:
+    name: Create release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create draft release
+        uses: taiki-e/create-gh-release-action@v1
+        with:
+          draft: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-binaries:
+    name: Build ${{ matrix.name }}
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # musl so the binary is static and runs on any distro, regardless of glibc.
+          - { name: linux, target: x86_64-unknown-linux-musl, os: ubuntu-latest }
+          # universal2 bundles both Intel and Apple Silicon into one binary.
+          - { name: macos, target: universal2-apple-darwin, os: macos-latest }
+          - { name: windows, target: x86_64-pc-windows-msvc, os: windows-latest }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # universal2 is not a real target: it is built from these two and merged with lipo.
+          targets: ${{ matrix.name == 'macos' && 'x86_64-apple-darwin,aarch64-apple-darwin' || matrix.target }}
+
+      - name: Install musl toolchain
+        if: matrix.name == 'linux'
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Build and upload
+        uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: pangloss
+          target: ${{ matrix.target }}
+          # .tar.gz on unix, .zip on windows
+          archive: $bin-$tag-${{ matrix.name }}
+          include: README.md,LICENCE
+          checksum: sha256
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-release:
+    name: Publish release
+    needs: upload-binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Undraft release
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

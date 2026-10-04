@@ -18,7 +18,7 @@ At the moment it supports Yomitan, Stardict and Mdict.
 
 ## Usage
 
-To install:
+To install, download the binary for your platform from the [releases page](https://github.com/daxida/pangloss/releases), or use cargo:
 
 ```console
 $ cargo install pangloss
