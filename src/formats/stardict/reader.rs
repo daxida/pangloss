@@ -16,8 +16,8 @@ impl Reader for StardictFormat {
 }
 
 fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
-    let (source, files) = StardictFiles::scan(path)?;
-    let read = |name: &str| read_possibly_compressed(&source, name);
+    let (mut source, files) = StardictFiles::scan(path)?;
+    let mut read = |name: &str| read_possibly_compressed(&mut source, name);
 
     let info = read_ifo_file(&String::from_utf8_lossy(&read(&files.ifo)?));
     let sts = SameTypeSequence::from_info(&info);
@@ -191,7 +191,7 @@ fn read_ifo_file(text: &str) -> GlossaryInfo {
     info
 }
 
-fn read_possibly_compressed(source: &Source, name: &str) -> Result<Vec<u8>> {
+fn read_possibly_compressed(source: &mut Source, name: &str) -> Result<Vec<u8>> {
     let mut reader = source.open(name)?;
     if matches!(
         Path::new(name).extension().and_then(|e| e.to_str()),

@@ -12,7 +12,7 @@ pub struct StardictFiles {
 }
 
 impl DictionaryFiles for StardictFiles {
-    const MAIN_EXTENSION: &'static str = "ifo";
+    const MAIN: &'static str = "*.ifo";
 
     fn find(ifo: &str, names: &[String]) -> Result<Self> {
         let required = |suffixes: &[&str]| {

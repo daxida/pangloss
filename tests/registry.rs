@@ -1,15 +1,17 @@
-use std::path::Path;
+use std::{io::Write, path::Path};
 
 use pangloss::{
     Entry, Glossary, Reader, ReaderFormat, WriterFormat,
     formats::{mdict::MdictFormat, stardict::StardictFormat},
 };
 
+const FIXTURES: &str = "tests/fixtures/formats";
+
 /// A fresh folder holding these fixtures (relative to `tests/fixtures/formats`) under new names.
 fn folder_with(files: &[(&str, &str)]) -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     for (from, to) in files {
-        let from = Path::new("tests/fixtures/formats").join(from);
+        let from = Path::new(FIXTURES).join(from);
         std::fs::copy(from, dir.path().join(to)).unwrap();
     }
     dir
@@ -151,4 +153,70 @@ fn stardicts_sharing_a_folder_only_take_their_own_files() {
             terms(&StardictFormat.read(&alone).unwrap()),
         );
     }
+}
+
+/// A zip at `path` holding these fixtures under new names.
+fn zip_with(path: &Path, files: &[(&str, &str)]) {
+    let mut zip = zip::ZipWriter::new(std::fs::File::create(path).unwrap());
+    for (from, to) in files {
+        let options = zip::write::SimpleFileOptions::default();
+        zip.start_file(*to, options).unwrap();
+        zip.write_all(&std::fs::read(Path::new(FIXTURES).join(from)).unwrap())
+            .unwrap();
+    }
+    zip.finish().unwrap();
+}
+
+#[test]
+fn a_zipped_mdict_reads_like_an_unzipped_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let zip = dir.path().join("dict.zip");
+    zip_with(
+        &zip,
+        &[
+            ("mdict/005-picture/005-picture.mdx", "005-picture.mdx"),
+            ("mdict/005-picture/005-picture.mdd", "005-picture.mdd"),
+        ],
+    );
+    let zipped = MdictFormat::default().read(&zip).unwrap();
+    let unzipped = MdictFormat::default()
+        .read(&Path::new(FIXTURES).join("mdict/005-picture/005-picture.mdx"))
+        .unwrap();
+    assert_eq!(terms(&zipped), terms(&unzipped));
+    assert_eq!(data_names(&zipped), data_names(&unzipped));
+}
+
+#[test]
+fn a_zipped_stardict_reads_like_an_unzipped_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let zip = dir.path().join("dict.zip");
+    zip_with(
+        &zip,
+        &[
+            ("stardict/02-syns/syns.ifo", "syns.ifo"),
+            ("stardict/02-syns/syns.idx", "syns.idx"),
+            ("stardict/02-syns/syns.dict", "syns.dict"),
+            ("stardict/02-syns/syns.syn", "syns.syn"),
+        ],
+    );
+    let zipped = StardictFormat.read(&zip).unwrap();
+    let unzipped = StardictFormat
+        .read(&Path::new(FIXTURES).join("stardict/02-syns/syns.ifo"))
+        .unwrap();
+    assert_eq!(terms(&zipped), terms(&unzipped));
+}
+
+#[test]
+fn a_zip_with_two_dictionaries_of_a_format_is_not_read() {
+    let dir = tempfile::tempdir().unwrap();
+    let zip = dir.path().join("dict.zip");
+    zip_with(
+        &zip,
+        &[
+            ("mdict/001-entry1.mdx", "a.mdx"),
+            ("mdict/001-entry1.mdx", "b.mdx"),
+        ],
+    );
+    let err = MdictFormat::default().read(&zip).unwrap_err();
+    assert!(err.to_string().contains("More than one *.mdx"), "{err}");
 }

@@ -29,7 +29,7 @@ impl Reader for MdictFormat {
 }
 
 fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
-    let (source, files) = MdictFiles::scan(path)?;
+    let (mut source, files) = MdictFiles::scan(path)?;
 
     let mut reader = BufReader::new(source.open(&files.mdx)?);
 
