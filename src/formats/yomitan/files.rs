@@ -9,14 +9,13 @@ static BANK_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(term|term_meta|tag|kanji|kanji_meta)_bank_(\d+)\.json$").unwrap()
 });
 
-/// Banks are sorted by their number.
+/// Banks are sorted by their number. Images are found later, from the entries that show them.
 pub struct YomitanFiles {
     pub index: String,
     pub term_banks: Vec<String>,
     pub term_meta_banks: Vec<String>,
     pub tag_banks: Vec<String>,
-    /// Everything that is not json, `styles.css` included.
-    pub media: Vec<String>,
+    pub styles: Option<String>,
 }
 
 impl DictionaryFiles for YomitanFiles {
@@ -26,7 +25,6 @@ impl DictionaryFiles for YomitanFiles {
         let mut term_banks = Vec::new();
         let mut term_meta_banks = Vec::new();
         let mut tag_banks = Vec::new();
-        let mut media = Vec::new();
 
         for name in names {
             if let Some(captures) = BANK_RE.captures(name) {
@@ -37,12 +35,8 @@ impl DictionaryFiles for YomitanFiles {
                     "tag" => tag_banks.push((n, name.clone())),
                     _ => tracing::warn!("Unsupported kanji file: {name}"),
                 }
-            } else if name.ends_with("json") {
-                if name != index {
-                    tracing::warn!("Unrecognized json file: {name}");
-                }
-            } else {
-                media.push(name.clone());
+            } else if name.ends_with("json") && name != index {
+                tracing::warn!("Unrecognized json file: {name}");
             }
         }
 
@@ -51,7 +45,7 @@ impl DictionaryFiles for YomitanFiles {
             term_banks: sorted(term_banks),
             term_meta_banks: sorted(term_meta_banks),
             tag_banks: sorted(tag_banks),
-            media,
+            styles: names.iter().find(|name| *name == "styles.css").cloned(),
         })
     }
 }

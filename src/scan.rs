@@ -3,7 +3,7 @@
 use std::{
     fs,
     io::{Cursor, Read},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use anyhow::{Result, bail};
@@ -93,7 +93,7 @@ impl Source {
 
     pub fn open(&mut self, name: &str) -> Result<Box<dyn Read>> {
         match self {
-            Self::Dir(dir) => Ok(Box::new(fs::File::open(dir.join(name))?)),
+            Self::Dir(dir) => Ok(Box::new(fs::File::open(inside(dir, name)?)?)),
             // A zip entry borrows the archive, so read it whole
             Self::Zip(_) => Ok(Box::new(Cursor::new(self.read(name)?))),
         }
@@ -101,7 +101,7 @@ impl Source {
 
     pub fn read(&mut self, name: &str) -> Result<Vec<u8>> {
         match self {
-            Self::Dir(dir) => Ok(fs::read(dir.join(name))?),
+            Self::Dir(dir) => Ok(fs::read(inside(dir, name)?)?),
             Self::Zip(archive) => {
                 let mut bytes = Vec::new();
                 archive.by_name(name)?.read_to_end(&mut bytes)?;
@@ -109,6 +109,15 @@ impl Source {
             }
         }
     }
+}
+
+/// `dir/name`, refusing names that would leave `dir`, since they may come from the dictionary.
+fn inside(dir: &Path, name: &str) -> Result<PathBuf> {
+    let plain = |part| matches!(part, Component::Normal(_));
+    if !Path::new(name).components().all(plain) {
+        bail!("Refusing to read {name} outside of {}", dir.display());
+    }
+    Ok(dir.join(name))
 }
 
 pub fn has_extension(name: impl AsRef<Path>, ext: &str) -> bool {

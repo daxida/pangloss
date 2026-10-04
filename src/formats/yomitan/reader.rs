@@ -3,7 +3,7 @@
 use std::{collections::HashMap, path::Path};
 
 use anyhow::{Result, bail};
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use rayon::prelude::*;
 use serde_json::Value;
 
@@ -54,11 +54,24 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         ..Default::default()
     };
 
-    tracing::debug!("Found {} media files", files.media.len());
-    let data_entries = read_all(&files.media)?
-        .into_iter()
-        .map(|(fname, bytes)| DataEntry::new(fname, bytes))
-        .collect();
+    let mut media = Vec::from_iter(files.styles.as_deref());
+    for entry in &entries {
+        if let Definition::Yomitan(YomitanDefinition::TermBankEntry(entry)) = entry.definition() {
+            for definition in &entry.definitions {
+                definition.image_paths(&mut media);
+            }
+        }
+    }
+    let media: IndexSet<&str> = media.into_iter().collect();
+    tracing::debug!("Found {} media files", media.len());
+
+    let mut data_entries = Vec::new();
+    for path in media {
+        match source.read(path) {
+            Ok(bytes) => data_entries.push(DataEntry::new(path, bytes)),
+            Err(err) => tracing::warn!("Missing image {path}: {err}"),
+        }
+    }
 
     Ok(Glossary {
         entries,

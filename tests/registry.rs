@@ -272,3 +272,34 @@ fn a_zip_with_two_dictionaries_of_a_format_is_not_read() {
     let err = MdictFormat::default().read(&zip).unwrap_err();
     assert!(err.to_string().contains("More than one *.mdx"), "{err}");
 }
+
+#[test]
+fn an_unzipped_yomitan_takes_only_the_media_yomitan_imports() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("dict");
+    std::fs::create_dir_all(dir.join("img")).unwrap();
+    std::fs::copy(
+        Path::new(FIXTURES).join("yomitan/index.json"),
+        dir.join("index.json"),
+    )
+    .unwrap();
+    let bank = r#"[
+        ["a", "", "", "", 0, [{"type": "structured-content", "content": [
+            {"tag": "span", "content": {"tag": "img", "path": "img/a.png"}}
+        ]}], 0, ""],
+        ["b", "", "", "", 0, [{"type": "image", "path": "../secret.png"}], 0, ""]
+    ]"#;
+    std::fs::write(dir.join("term_bank_1.json"), bank).unwrap();
+    for (name, bytes) in [
+        ("img/a.png", "a"),
+        ("img/unused.png", "unused"),
+        ("styles.css", "b {}"),
+        ("notes.txt", "not part of the dictionary"),
+    ] {
+        std::fs::write(dir.join(name), bytes).unwrap();
+    }
+    std::fs::write(root.path().join("secret.png"), "outside").unwrap();
+
+    let glossary = YomitanFormat.read(&dir.join("index.json")).unwrap();
+    assert_eq!(data_names(&glossary), ["styles.css", "img/a.png"]);
+}

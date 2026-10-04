@@ -101,6 +101,17 @@ impl fmt::Display for DetailedDefinition {
     }
 }
 
+impl DetailedDefinition {
+    /// The paths of the images it shows, the only media Yomitan imports besides styles.css.
+    pub fn image_paths<'a>(&'a self, paths: &mut Vec<&'a str>) {
+        match self {
+            Self::Image(image) => paths.push(&image.path),
+            Self::StructuredContent(content) => content.content.image_paths(paths),
+            Self::String(_) | Self::Text(_) | Self::Inflection(..) => (),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Text {
     pub r#type: TextTag,
@@ -160,6 +171,32 @@ pub enum Node {
     Generic(Box<GenericNode>),   // 16
     Image(Box<ImageNode>),       // 16
     Backlink(Box<BacklinkNode>), // 16
+}
+
+impl Node {
+    fn image_paths<'a>(&'a self, paths: &mut Vec<&'a str>) {
+        let content = match self {
+            Self::Text(_) => None,
+            Self::Array(nodes) => {
+                for node in nodes {
+                    node.image_paths(paths);
+                }
+                None
+            }
+            Self::Image(image) => {
+                paths.push(&image.path);
+                None
+            }
+            Self::LineBreak(node) => node.content.as_ref(),
+            Self::Group(node) => node.content.as_ref(),
+            Self::Table(node) => node.content.as_ref(),
+            Self::Generic(node) => node.content.as_ref(),
+            Self::Backlink(node) => node.content.as_ref(),
+        };
+        if let Some(content) = content {
+            content.image_paths(paths);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
