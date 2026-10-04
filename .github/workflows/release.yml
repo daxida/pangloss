@@ -41,8 +41,8 @@ jobs:
         include:
           # musl so the binary is static and runs on any distro, regardless of glibc.
           - { name: linux, target: x86_64-unknown-linux-musl, os: ubuntu-latest }
-          # universal2 bundles both Intel and Apple Silicon into one binary.
-          - { name: macos, target: universal2-apple-darwin, os: macos-latest }
+          # universal bundles both Intel and Apple Silicon into one binary.
+          - { name: macos, target: universal-apple-darwin, os: macos-latest }
           - { name: windows, target: x86_64-pc-windows-msvc, os: windows-latest }
 
     steps:
@@ -52,7 +52,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          # universal2 is not a real target: it is built from these two and merged with lipo.
+          # universal is not a real target: it is built from these two and merged with lipo.
           targets: ${{ matrix.name == 'macos' && 'x86_64-apple-darwin,aarch64-apple-darwin' || matrix.target }}
 
       - name: Install musl toolchain
