@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 
-mod files;
+pub(crate) mod files;
 mod reader;
 mod writer;
 

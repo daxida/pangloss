@@ -15,9 +15,9 @@ use pangloss::{Reader, ReaderFormat, Writer, WriterFormat};
 /// One output extension per writable format.
 const OUTPUTS: [&str; 6] = ["txt", "json", "mdx", "ifo", "zip", "hdir"];
 
-/// Loose pieces of a Yomitan dictionary that sit next to the fixtures, not
-/// dictionaries in their own right.
-const NOT_DICTIONARIES: [&str; 2] = ["index.json", "term_bank_1.json"];
+/// A bank of the unzipped Yomitan dictionary whose index.json sits next to the
+/// fixtures, not a dictionary in its own right.
+const NOT_DICTIONARIES: [&str; 1] = ["term_bank_1.json"];
 
 fn collect_fixtures(dir: &Path) -> Vec<PathBuf> {
     let mut found = Vec::new();

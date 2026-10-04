@@ -40,8 +40,10 @@ fn reader_format_is_detected_from_the_path() {
     let cases = [
         ("dict.ifo", Some(ReaderFormat::Stardict)),
         ("dict.mdx", Some(ReaderFormat::Mdict)),
-        ("dict.zip", Some(ReaderFormat::Yomitan)),
         ("dict.json", Some(ReaderFormat::Json)),
+        ("unzipped/index.json", Some(ReaderFormat::Yomitan)),
+        // A zip is detected by what it holds, see below
+        ("missing.zip", None),
         ("dict.txt", Some(ReaderFormat::Text)),
         ("some/nested/dir/dict.mdx", Some(ReaderFormat::Mdict)),
         ("./dict.v2.ifo", Some(ReaderFormat::Stardict)),
@@ -165,6 +167,42 @@ fn zip_with(path: &Path, files: &[(&str, &str)]) {
             .unwrap();
     }
     zip.finish().unwrap();
+}
+
+#[test]
+fn a_zip_is_detected_from_what_it_holds() {
+    let dir = tempfile::tempdir().unwrap();
+    let mdx = ("mdict/001-entry1.mdx", "dict.mdx");
+    let ifo = ("stardict/01-base/dict.ifo", "dict.ifo");
+    let index = ("yomitan/index.json", "index.json");
+    let cases = [
+        (vec![index], Some(ReaderFormat::Yomitan)),
+        (vec![mdx], Some(ReaderFormat::Mdict)),
+        (
+            vec![("mdict/001-entry1.mdx", "nested/DICT.MDX")],
+            Some(ReaderFormat::Mdict),
+        ),
+        (vec![ifo], Some(ReaderFormat::Stardict)),
+        // Several dictionaries of one format are still that format
+        (
+            vec![mdx, ("mdict/001-entry1.mdx", "other.mdx")],
+            Some(ReaderFormat::Mdict),
+        ),
+        // Yomitan only looks at the root
+        (vec![("yomitan/index.json", "nested/index.json")], None),
+        (vec![index, mdx], None),
+        (vec![], None),
+    ];
+    for (i, (files, expected)) in cases.into_iter().enumerate() {
+        let path = dir.path().join(format!("{i}.zip"));
+        zip_with(&path, &files);
+        assert_eq!(ReaderFormat::try_from_path(&path), expected, "{files:?}");
+    }
+    let real = Path::new(FIXTURES).join("yomitan/010-base.zip");
+    assert_eq!(
+        ReaderFormat::try_from_path(&real),
+        Some(ReaderFormat::Yomitan)
+    );
 }
 
 #[test]

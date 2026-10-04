@@ -6,10 +6,15 @@ use clap::ValueEnum;
 use crate::{
     Context, Reader, Writer,
     formats::{
-        html::HtmlFormat, json::JsonFormat, mdict::MdictFormat, stardict::StardictFormat,
-        text::TextFormat, yomitan::YomitanFormat,
+        html::HtmlFormat,
+        json::JsonFormat,
+        mdict::{MdictFormat, files::MdictFiles},
+        stardict::{StardictFormat, files::StardictFiles},
+        text::TextFormat,
+        yomitan::{YomitanFormat, files::YomitanFiles},
     },
     glossary::Glossary,
+    scan::{DictionaryFiles, Source},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -71,12 +76,37 @@ impl Writer for WriterFormat {
 
 impl ReaderFormat {
     pub fn try_from_path(path: &Path) -> Option<Self> {
+        let name = path.file_name()?.to_str()?;
         match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
             "txt" => Some(Self::Text),
             "mdx" => Some(Self::Mdict),
             "ifo" => Some(Self::Stardict),
+            "json" if YomitanFiles::is_main(name) => Some(Self::Yomitan),
             "json" => Some(Self::Json),
-            "zip" => Some(Self::Yomitan),
+            "zip" => Self::from_zip(path),
+            _ => None,
+        }
+    }
+
+    /// The only format whose main file is in the zip.
+    fn from_zip(path: &Path) -> Option<Self> {
+        let names = Source::zip(path).and_then(|zip| zip.names()).ok()?;
+        let holds = |is_main: fn(&str) -> bool| names.iter().any(|name| is_main(name));
+        // A list rather than a match on the flags: a new format is one more row,
+        // not a wider tuple in every arm.
+        let found: Vec<_> = [
+            (Self::Yomitan, holds(YomitanFiles::is_main)),
+            (Self::Mdict, holds(MdictFiles::is_main)),
+            (Self::Stardict, holds(StardictFiles::is_main)),
+        ]
+        .into_iter()
+        .filter_map(|(format, held)| held.then_some(format))
+        .collect();
+        if found.len() > 1 {
+            tracing::warn!("{} could be any of {found:?}", path.display());
+        }
+        match found.as_slice() {
+            [format] => Some(*format),
             _ => None,
         }
     }
