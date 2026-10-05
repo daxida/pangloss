@@ -83,14 +83,14 @@ impl ReaderFormat {
             "ifo" => Some(Self::Stardict),
             "json" if YomitanFiles::is_main(name) => Some(Self::Yomitan),
             "json" => Some(Self::Json),
-            "zip" => Self::from_zip(path),
+            "zip" | "7z" => Self::from_archive(path),
             _ => None,
         }
     }
 
-    /// The only format whose main file is in the zip.
-    fn from_zip(path: &Path) -> Option<Self> {
-        let names = Source::zip(path).and_then(|zip| zip.names()).ok()?;
+    /// The only format whose main file is in the archive.
+    fn from_archive(path: &Path) -> Option<Self> {
+        let names = Source::archive(path).ok()??.names().ok()?;
         let holds = |is_main: fn(&str) -> bool| names.iter().any(|name| is_main(name));
         // A list rather than a match on the flags: a new format is one more row,
         // not a wider tuple in every arm.

@@ -1,12 +1,14 @@
-//! Finding the files of a dictionary, in a folder or inside a zip.
+//! Finding the files of a dictionary, in a folder or inside an archive (zip, 7z).
 
 use std::{
+    collections::HashMap,
     fs,
     io::{Cursor, Read},
     path::{Component, Path, PathBuf},
 };
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
+use sevenz_rust2::{ArchiveReader, Password};
 use zip::ZipArchive;
 
 use crate::utils::parent_dir;
@@ -26,17 +28,14 @@ pub trait DictionaryFiles: Sized {
         }
     }
 
-    /// `path` is either the main file, or a zip holding it.
+    /// `path` is either the main file, or an archive holding it.
     fn scan(path: &Path) -> Result<(Source, Self)> {
-        let zipped = has_extension(path, "zip");
-        let source = if zipped {
-            Source::zip(path)?
-        } else {
-            Source::Dir(parent_dir(path).to_path_buf())
-        };
+        let archive = Source::archive(path)?;
+        let archived = archive.is_some();
+        let source = archive.unwrap_or_else(|| Source::Dir(parent_dir(path).to_path_buf()));
         let names = source.names()?;
 
-        let mains: Vec<String> = if zipped {
+        let mains: Vec<String> = if archived {
             names.clone()
         } else {
             vec![
@@ -62,15 +61,46 @@ pub trait DictionaryFiles: Sized {
 pub enum Source {
     Dir(PathBuf),
     Zip(ZipArchive<fs::File>),
+    /// Decoded whole on the first read: in a solid archive, reading an entry decodes
+    /// everything before it, so reading entries one by one decodes the start over and over.
+    SevenZ {
+        // Boxed, it is much bigger than the other variants
+        reader: Box<ArchiveReader<fs::File>>,
+        entries: Option<HashMap<String, Vec<u8>>>,
+    },
+}
+
+/// Every file in the archive, decoded in one pass.
+fn decode_all(reader: &mut ArchiveReader<fs::File>) -> Result<HashMap<String, Vec<u8>>> {
+    let mut entries = HashMap::new();
+    reader.for_each_entries(|entry, data| {
+        if !entry.is_directory() {
+            let mut bytes = Vec::new();
+            data.read_to_end(&mut bytes)?;
+            entries.insert(entry.name().to_string(), bytes);
+        }
+        Ok(true)
+    })?;
+    Ok(entries)
 }
 
 impl Source {
-    pub fn zip(path: &Path) -> Result<Self> {
-        let archive = ZipArchive::new(fs::File::open(path)?)?;
-        Ok(Self::Zip(archive))
+    /// The archive at `path`, if it has the extension of one we read.
+    pub fn archive(path: &Path) -> Result<Option<Self>> {
+        if has_extension(path, "zip") {
+            Ok(Some(Self::Zip(ZipArchive::new(fs::File::open(path)?)?)))
+        } else if has_extension(path, "7z") {
+            let reader = Box::new(ArchiveReader::open(path, Password::empty())?);
+            Ok(Some(Self::SevenZ {
+                reader,
+                entries: None,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
-    /// The names of every file (not folders), in the zip's order or unordered for a folder.
+    /// The names of every file (not folders), in the archive's order or unordered for a folder.
     pub fn names(&self) -> Result<Vec<String>> {
         match self {
             Self::Dir(dir) => {
@@ -88,14 +118,21 @@ impl Source {
                 .filter(|name| !name.ends_with('/'))
                 .map(String::from)
                 .collect()),
+            Self::SevenZ { reader, .. } => Ok(reader
+                .archive()
+                .files
+                .iter()
+                .filter(|entry| !entry.is_directory())
+                .map(|entry| entry.name().to_string())
+                .collect()),
         }
     }
 
     pub fn open(&mut self, name: &str) -> Result<Box<dyn Read>> {
         match self {
             Self::Dir(dir) => Ok(Box::new(fs::File::open(inside(dir, name)?)?)),
-            // A zip entry borrows the archive, so read it whole
-            Self::Zip(_) => Ok(Box::new(Cursor::new(self.read(name)?))),
+            // An entry borrows the archive, so read it whole
+            Self::Zip(_) | Self::SevenZ { .. } => Ok(Box::new(Cursor::new(self.read(name)?))),
         }
     }
 
@@ -106,6 +143,15 @@ impl Source {
                 let mut bytes = Vec::new();
                 archive.by_name(name)?.read_to_end(&mut bytes)?;
                 Ok(bytes)
+            }
+            Self::SevenZ { reader, entries } => {
+                if entries.is_none() {
+                    *entries = Some(decode_all(reader)?);
+                }
+                let bytes = entries.as_ref().and_then(|entries| entries.get(name));
+                Ok(bytes
+                    .with_context(|| format!("No {name} in the 7z"))?
+                    .clone())
             }
         }
     }

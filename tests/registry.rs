@@ -203,6 +203,17 @@ fn a_zip_is_detected_from_what_it_holds() {
         ReaderFormat::try_from_path(&real),
         Some(ReaderFormat::Yomitan)
     );
+    for (archive, expected) in [
+        ("mdict/006-archived.7z", ReaderFormat::Mdict),
+        ("stardict/06-archived.7z", ReaderFormat::Stardict),
+    ] {
+        let path = Path::new(FIXTURES).join(archive);
+        assert_eq!(
+            ReaderFormat::try_from_path(&path),
+            Some(expected),
+            "{archive}"
+        );
+    }
 }
 
 #[test]
@@ -256,6 +267,27 @@ fn an_unzipped_yomitan_reads_like_a_zipped_one() {
     let unzipped = YomitanFormat.read(&dir.path().join("index.json")).unwrap();
     assert_eq!(terms(&zipped), terms(&unzipped));
     assert_eq!(data_names(&zipped), data_names(&unzipped));
+}
+
+#[test]
+fn a_7z_reads_like_its_unarchived_dictionary() {
+    let mdict = MdictFormat::default();
+    let archived = mdict
+        .read(&Path::new(FIXTURES).join("mdict/006-archived.7z"))
+        .unwrap();
+    let unarchived = mdict
+        .read(&Path::new(FIXTURES).join("mdict/005-picture/005-picture.mdx"))
+        .unwrap();
+    assert_eq!(terms(&archived), terms(&unarchived));
+    assert_eq!(data_names(&archived), data_names(&unarchived));
+
+    let archived = StardictFormat
+        .read(&Path::new(FIXTURES).join("stardict/06-archived.7z"))
+        .unwrap();
+    let unarchived = StardictFormat
+        .read(&Path::new(FIXTURES).join("stardict/02-syns/syns.ifo"))
+        .unwrap();
+    assert_eq!(terms(&archived), terms(&unarchived));
 }
 
 #[test]
