@@ -1,5 +1,4 @@
-//! Finding the files of a dictionary: beside its main file, or in a container holding it
-//! (a folder, a zip or a 7z).
+//! Finding the files of a dictionary: beside its main file, or in a container holding it.
 
 use std::{
     collections::HashMap,
@@ -86,7 +85,7 @@ fn decode_all(reader: &mut ArchiveReader<fs::File>) -> Result<HashMap<String, Ve
 }
 
 impl Source {
-    /// The container at `path`: a folder, or an archive with the extension of one we read.
+    /// The container at `path`, if it is one we can look into.
     pub fn container(path: &Path) -> Result<Option<Self>> {
         if path.is_dir() {
             Ok(Some(Self::Dir(path.to_path_buf())))

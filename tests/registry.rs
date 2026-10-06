@@ -42,7 +42,7 @@ fn reader_format_is_detected_from_the_path() {
         ("dict.mdx", Some(ReaderFormat::Mdict)),
         ("dict.json", Some(ReaderFormat::Json)),
         ("unzipped/index.json", Some(ReaderFormat::Yomitan)),
-        // A zip is detected by what it holds, see below
+        // A container is detected by what it holds, see below
         ("missing.zip", None),
         ("dict.txt", Some(ReaderFormat::Text)),
         ("some/nested/dir/dict.mdx", Some(ReaderFormat::Mdict)),

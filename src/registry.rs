@@ -76,7 +76,7 @@ impl Writer for WriterFormat {
 
 impl ReaderFormat {
     pub fn try_from_path(path: &Path) -> Option<Self> {
-        // A folder, zip or 7z goes by the dictionary it holds
+        // A container goes by the dictionary it holds
         if let Some(container) = Source::container(path).ok()? {
             return Self::from_names(&container.names().ok()?, path);
         }

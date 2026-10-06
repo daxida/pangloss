@@ -7,7 +7,7 @@ use crate::registry::{ReaderFormat, WriterFormat};
 #[derive(Parser, Debug)]
 #[command(name = "pangloss", about = "Convert between glossary formats", version = env!("CARGO_PKG_VERSION"))]
 pub struct Cli {
-    #[arg(help = "Path to the input dictionary file")]
+    #[arg(help = "Path to the input dictionary: its main file, or a folder or archive holding it")]
     pub input: PathBuf,
 
     #[arg(help = "Path to the output dictionary file")]
