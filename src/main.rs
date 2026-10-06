@@ -40,7 +40,14 @@ fn prelude(args: &mut Cli) -> Result<()> {
     args.rformat = args
         .rformat
         .or_else(|| ReaderFormat::try_from_path(&args.input))
-        .context("Couldn't detect the format. Pass --rformat=FORMAT")
+        .with_context(|| {
+            let input = args.input.display();
+            if args.input.is_dir() {
+                format!("{input} doesn't hold exactly one dictionary")
+            } else {
+                "Couldn't detect the format. Pass --rformat=FORMAT".to_string()
+            }
+        })
         .map(Some)?;
 
     args.wformat = args

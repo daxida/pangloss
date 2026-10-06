@@ -1,4 +1,5 @@
-//! Finding the files of a dictionary, in a folder or inside an archive (zip, 7z).
+//! Finding the files of a dictionary: beside its main file, or in a container holding it
+//! (a folder, a zip or a 7z).
 
 use std::{
     collections::HashMap,
@@ -28,14 +29,14 @@ pub trait DictionaryFiles: Sized {
         }
     }
 
-    /// `path` is either the main file, or an archive holding it.
+    /// `path` is either the main file, or a container holding it.
     fn scan(path: &Path) -> Result<(Source, Self)> {
-        let archive = Source::archive(path)?;
-        let archived = archive.is_some();
-        let source = archive.unwrap_or_else(|| Source::Dir(parent_dir(path).to_path_buf()));
+        let container = Source::container(path)?;
+        let contained = container.is_some();
+        let source = container.unwrap_or_else(|| Source::Dir(parent_dir(path).to_path_buf()));
         let names = source.names()?;
 
-        let mains: Vec<String> = if archived {
+        let mains: Vec<String> = if contained {
             names.clone()
         } else {
             vec![
@@ -85,9 +86,11 @@ fn decode_all(reader: &mut ArchiveReader<fs::File>) -> Result<HashMap<String, Ve
 }
 
 impl Source {
-    /// The archive at `path`, if it has the extension of one we read.
-    pub fn archive(path: &Path) -> Result<Option<Self>> {
-        if has_extension(path, "zip") {
+    /// The container at `path`: a folder, or an archive with the extension of one we read.
+    pub fn container(path: &Path) -> Result<Option<Self>> {
+        if path.is_dir() {
+            Ok(Some(Self::Dir(path.to_path_buf())))
+        } else if has_extension(path, "zip") {
             Ok(Some(Self::Zip(ZipArchive::new(fs::File::open(path)?)?)))
         } else if has_extension(path, "7z") {
             let reader = Box::new(ArchiveReader::open(path, Password::empty())?);

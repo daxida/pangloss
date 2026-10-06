@@ -264,9 +264,12 @@ fn an_unzipped_yomitan_reads_like_a_zipped_one() {
         .extract(dir.path())
         .unwrap();
     let zipped = YomitanFormat.read(&zip).unwrap();
-    let unzipped = YomitanFormat.read(&dir.path().join("index.json")).unwrap();
-    assert_eq!(terms(&zipped), terms(&unzipped));
-    assert_eq!(data_names(&zipped), data_names(&unzipped));
+    // Through its index.json, or the folder itself
+    for path in [dir.path().join("index.json"), dir.path().to_path_buf()] {
+        let unzipped = YomitanFormat.read(&path).unwrap();
+        assert_eq!(terms(&zipped), terms(&unzipped));
+        assert_eq!(data_names(&zipped), data_names(&unzipped));
+    }
 }
 
 #[test]
@@ -288,6 +291,54 @@ fn a_7z_reads_like_its_unarchived_dictionary() {
         .read(&Path::new(FIXTURES).join("stardict/02-syns/syns.ifo"))
         .unwrap();
     assert_eq!(terms(&archived), terms(&unarchived));
+}
+
+#[test]
+fn a_folder_is_detected_from_what_it_holds() {
+    let mdx = ("mdict/001-entry1.mdx", "dict.mdx");
+    let ifo = ("stardict/01-base/dict.ifo", "dict.ifo");
+    let index = ("yomitan/index.json", "index.json");
+    let cases = [
+        (vec![mdx], Some(ReaderFormat::Mdict)),
+        (vec![ifo], Some(ReaderFormat::Stardict)),
+        (vec![index], Some(ReaderFormat::Yomitan)),
+        (vec![mdx, ifo], None),
+        (vec![], None),
+    ];
+    for (files, expected) in cases {
+        let dir = folder_with(&files);
+        assert_eq!(
+            ReaderFormat::try_from_path(dir.path()),
+            expected,
+            "{files:?}"
+        );
+    }
+}
+
+#[test]
+fn a_folder_reads_like_its_dictionary() {
+    let mdict = Path::new(FIXTURES).join("mdict/005-picture");
+    let from_folder = MdictFormat::default().read(&mdict).unwrap();
+    let from_mdx = MdictFormat::default()
+        .read(&mdict.join("005-picture.mdx"))
+        .unwrap();
+    assert_eq!(terms(&from_folder), terms(&from_mdx));
+    assert_eq!(data_names(&from_folder), data_names(&from_mdx));
+
+    let stardict = Path::new(FIXTURES).join("stardict/02-syns");
+    let from_folder = StardictFormat.read(&stardict).unwrap();
+    let from_ifo = StardictFormat.read(&stardict.join("syns.ifo")).unwrap();
+    assert_eq!(terms(&from_folder), terms(&from_ifo));
+}
+
+#[test]
+fn a_folder_with_two_dictionaries_of_a_format_is_not_read() {
+    let dir = folder_with(&[
+        ("mdict/001-entry1.mdx", "a.mdx"),
+        ("mdict/001-entry1.mdx", "b.mdx"),
+    ]);
+    let err = MdictFormat::default().read(dir.path()).unwrap_err();
+    assert!(err.to_string().contains("More than one *.mdx"), "{err}");
 }
 
 #[test]

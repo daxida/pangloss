@@ -76,6 +76,10 @@ impl Writer for WriterFormat {
 
 impl ReaderFormat {
     pub fn try_from_path(path: &Path) -> Option<Self> {
+        // A folder, zip or 7z goes by the dictionary it holds
+        if let Some(container) = Source::container(path).ok()? {
+            return Self::from_names(&container.names().ok()?, path);
+        }
         let name = path.file_name()?.to_str()?;
         match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
             "txt" => Some(Self::Text),
@@ -83,14 +87,12 @@ impl ReaderFormat {
             "ifo" => Some(Self::Stardict),
             "json" if YomitanFiles::is_main(name) => Some(Self::Yomitan),
             "json" => Some(Self::Json),
-            "zip" | "7z" => Self::from_archive(path),
             _ => None,
         }
     }
 
-    /// The only format whose main file is in the archive.
-    fn from_archive(path: &Path) -> Option<Self> {
-        let names = Source::archive(path).ok()??.names().ok()?;
+    /// The only format whose main file is among the `names` that `container` holds.
+    fn from_names(names: &[String], container: &Path) -> Option<Self> {
         let holds = |is_main: fn(&str) -> bool| names.iter().any(|name| is_main(name));
         // A list rather than a match on the flags: a new format is one more row,
         // not a wider tuple in every arm.
@@ -103,7 +105,7 @@ impl ReaderFormat {
         .filter_map(|(format, held)| held.then_some(format))
         .collect();
         if found.len() > 1 {
-            tracing::warn!("{} could be any of {found:?}", path.display());
+            tracing::warn!("{} could be any of {found:?}", container.display());
         }
         match found.as_slice() {
             [format] => Some(*format),
