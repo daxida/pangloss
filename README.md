@@ -24,13 +24,13 @@ To install, download the binary for your platform from the [releases page](https
 $ cargo install pangloss
 ```
 
-Then run (.ifo detects Stardict, .zip detects Yomitan):
+Then run (the format is detected from the extension, f.e. .ifo for Stardict):
 
 ```console
 $ pangloss path/to/stardict.ifo path/to/out.zip
 ```
 
-The input can also be a folder or archive holding the dictionary. To convert every dictionary under a folder, mirroring it in the output folder:
+The input can also be a folder or archive (zip, 7z) holding the dictionary, detected from what it holds. To convert every dictionary under a folder, mirroring it in the output folder:
 
 ```console
 $ pangloss path/to/folder path/to/out --batch --wformat yomitan
