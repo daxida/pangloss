@@ -115,15 +115,23 @@ impl ReaderFormat {
 }
 
 impl WriterFormat {
-    pub fn try_from_path(path: &Path) -> Option<Self> {
-        match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
-            "txt" => Some(Self::Text),
-            "mdx" => Some(Self::Mdict),
-            "ifo" => Some(Self::Stardict),
-            "json" => Some(Self::Json),
-            "zip" => Some(Self::Yomitan),
-            "hdir" => Some(Self::Html),
-            _ => None,
+    /// The extension of the files this format writes, which `try_from_path` detects it from.
+    pub const fn extension(self) -> &'static str {
+        match self {
+            Self::Text => "txt",
+            Self::Mdict => "mdx",
+            Self::Stardict => "ifo",
+            Self::Json => "json",
+            Self::Yomitan => "zip",
+            Self::Html => "hdir",
         }
+    }
+
+    pub fn try_from_path(path: &Path) -> Option<Self> {
+        let ext = path.extension()?.to_str()?;
+        Self::value_variants()
+            .iter()
+            .copied()
+            .find(|format| ext.eq_ignore_ascii_case(format.extension()))
     }
 }

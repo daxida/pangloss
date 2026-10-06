@@ -30,6 +30,12 @@ Then run (.ifo detects Stardict, .zip detects Yomitan):
 $ pangloss path/to/stardict.ifo path/to/out.zip
 ```
 
+The input can also be a folder or archive holding the dictionary. To convert every dictionary under a folder, mirroring it in the output folder:
+
+```console
+$ pangloss path/to/folder path/to/out --batch --wformat yomitan
+```
+
 Use `pangloss --help` to show the help menu.
 
 ## Readers

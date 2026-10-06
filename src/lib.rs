@@ -6,6 +6,7 @@ mod encryption;
 mod scan;
 mod utils;
 
+pub mod batch;
 pub mod cli;
 pub mod css;
 pub mod formats;

@@ -4,14 +4,20 @@ use clap::Parser;
 
 use crate::registry::{ReaderFormat, WriterFormat};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(name = "pangloss", about = "Convert between glossary formats", version = env!("CARGO_PKG_VERSION"))]
 pub struct Cli {
     #[arg(help = "Path to the input dictionary: its main file, or a folder or archive holding it")]
     pub input: PathBuf,
 
-    #[arg(help = "Path to the output dictionary file")]
+    #[arg(help = "Path to the output dictionary, or a folder with --batch")]
     pub output: PathBuf,
+
+    #[arg(
+        long,
+        help = "Convert every dictionary under the input folder, mirroring it in the output folder"
+    )]
+    pub batch: bool,
 
     #[arg(long, help = "Read format")]
     pub rformat: Option<ReaderFormat>,

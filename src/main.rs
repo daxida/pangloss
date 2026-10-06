@@ -1,10 +1,11 @@
-use std::{fs, time::Instant};
+use std::{collections::HashSet, fs, time::Instant};
 
 use anyhow::{Context as _, Result, bail};
 use tracing_subscriber::{EnvFilter, fmt::format::FmtSpan};
 
 use pangloss::{
     Config, Context, DataEntry, Definition, Glossary, Reader, ReaderFormat, Writer, WriterFormat,
+    batch::{find_dictionaries, output_path},
     cli::Cli,
     css::merge_css_files,
     transform::{
@@ -43,7 +44,9 @@ fn prelude(args: &mut Cli) -> Result<()> {
         .with_context(|| {
             let input = args.input.display();
             if args.input.is_dir() {
-                format!("{input} doesn't hold exactly one dictionary")
+                format!(
+                    "{input} doesn't hold exactly one dictionary. For all of them, pass --batch"
+                )
             } else {
                 "Couldn't detect the format. Pass --rformat=FORMAT".to_string()
             }
@@ -228,9 +231,62 @@ fn pre_write(glossary: &mut Glossary, args: &Cli) {
     }
 }
 
+/// Convert every dictionary under the input folder, keeping going past failures.
+fn run_batch(cli: &Cli) -> Result<()> {
+    if !cli.input.is_dir() {
+        bail!("--batch needs a folder, but got {}", cli.input.display());
+    }
+    let Some(wformat) = cli.wformat else {
+        bail!("--batch needs --wformat=FORMAT");
+    };
+    if cli.name.is_some() {
+        bail!("--name would give every dictionary the same name");
+    }
+
+    let found = find_dictionaries(&cli.input, cli.rformat)?;
+    // Outputs never overwrite an input, which also makes a run into the same folder safe
+    let mut taken: HashSet<_> = found.iter().map(|(input, _)| input.clone()).collect();
+    let (mut converted, mut skipped, mut failed) = (0, 0, 0);
+    for (input, rformat) in &found {
+        let output = output_path(&cli.input, input, &cli.output, wformat);
+        if !taken.insert(output.clone()) {
+            tracing::warn!(
+                "Skipping {}: {} is taken",
+                input.display(),
+                output.display()
+            );
+            skipped += 1;
+            continue;
+        }
+        let mut args = Cli {
+            input: input.clone(),
+            output,
+            rformat: Some(*rformat),
+            wformat: Some(wformat),
+            ..cli.clone()
+        };
+        match prelude(&mut args).and_then(|()| run(&args)) {
+            Ok(()) => converted += 1,
+            Err(err) => {
+                tracing::error!("Failed to convert {}: {err:#}", input.display());
+                failed += 1;
+            }
+        }
+    }
+
+    println!("Converted {converted}, skipped {skipped}, failed {failed}");
+    if failed > 0 {
+        bail!("{failed} dictionaries failed to convert");
+    }
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let mut cli = Cli::parse_cli();
     init_logger(cli.verbose);
+    if cli.batch {
+        return run_batch(&cli);
+    }
     prelude(&mut cli)?;
     run(&cli)
 }
