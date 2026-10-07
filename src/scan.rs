@@ -138,6 +138,17 @@ impl Source {
         }
     }
 
+    /// The bytes of `name`, decompressed if it is a `.gz`, or a `.dz` (dictzip is gzip).
+    pub fn read_possibly_compressed(&mut self, name: &str) -> Result<Vec<u8>> {
+        let mut reader = self.open(name)?;
+        if has_extension(name, "dz") || has_extension(name, "gz") {
+            reader = Box::new(flate2::read::GzDecoder::new(reader));
+        }
+        let mut buf = Vec::new();
+        reader.read_to_end(&mut buf)?;
+        Ok(buf)
+    }
+
     pub fn read(&mut self, name: &str) -> Result<Vec<u8>> {
         match self {
             Self::Dir(dir) => Ok(fs::read(inside(dir, name)?)?),

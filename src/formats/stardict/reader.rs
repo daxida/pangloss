@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Read, path::Path};
+use std::{collections::HashMap, path::Path};
 
 use anyhow::{Result, bail};
 
@@ -6,7 +6,7 @@ use crate::{
     Context, DataEntry, Reader,
     formats::stardict::{StardictFormat, files::StardictFiles, sts::SameTypeSequence},
     glossary::{AltEntry, Entry, Glossary, GlossaryInfo},
-    scan::{DictionaryFiles, Source},
+    scan::DictionaryFiles,
 };
 
 impl Reader for StardictFormat {
@@ -17,7 +17,7 @@ impl Reader for StardictFormat {
 
 fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     let (mut source, files) = StardictFiles::scan(path)?;
-    let mut read = |name: &str| read_possibly_compressed(&mut source, name);
+    let mut read = |name: &str| source.read_possibly_compressed(name);
 
     let info = read_ifo_file(&String::from_utf8_lossy(&read(&files.ifo)?));
     let sts = SameTypeSequence::from_info(&info);
@@ -189,17 +189,4 @@ fn read_ifo_file(text: &str) -> GlossaryInfo {
     }
 
     info
-}
-
-fn read_possibly_compressed(source: &mut Source, name: &str) -> Result<Vec<u8>> {
-    let mut reader = source.open(name)?;
-    if matches!(
-        Path::new(name).extension().and_then(|e| e.to_str()),
-        Some("dz" | "gz")
-    ) {
-        reader = Box::new(flate2::read::GzDecoder::new(reader));
-    }
-    let mut buf = Vec::new();
-    reader.read_to_end(&mut buf)?;
-    Ok(buf)
 }
