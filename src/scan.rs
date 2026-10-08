@@ -75,7 +75,9 @@ fn decode_all(reader: &mut ArchiveReader<fs::File>) -> Result<HashMap<String, Ve
     let mut entries = HashMap::new();
     reader.for_each_entries(|entry, data| {
         if !entry.is_directory() {
+            // Sized up front, unless the archive claims an impossible size
             let mut bytes = Vec::new();
+            let _ = bytes.try_reserve_exact(usize::try_from(entry.size()).unwrap_or(0));
             data.read_to_end(&mut bytes)?;
             entries.insert(entry.name().to_string(), bytes);
         }
