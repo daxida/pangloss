@@ -1,4 +1,9 @@
-use std::path::Path;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
+use anyhow::Result;
 
 /// Like [`Path::parent`], but never empty.
 ///
@@ -10,6 +15,28 @@ pub fn parent_dir(path: &Path) -> &Path {
         Some(parent) if !parent.as_os_str().is_empty() => parent,
         _ => Path::new("."),
     }
+}
+
+/// Every file under `dir`, sorted, skipping hidden ones.
+pub fn files_under(dir: &Path) -> Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    let mut dirs = vec![dir.to_path_buf()];
+    while let Some(dir) = dirs.pop() {
+        for entry in fs::read_dir(&dir)? {
+            let entry = entry?;
+            if entry.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
+            let path = entry.path();
+            if path.is_dir() {
+                dirs.push(path);
+            } else {
+                files.push(path);
+            }
+        }
+    }
+    files.sort();
+    Ok(files)
 }
 
 pub fn unescape_html(s: &str) -> String {

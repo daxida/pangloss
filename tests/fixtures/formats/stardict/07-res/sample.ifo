@@ -1,0 +1,8 @@
+StarDict's dict ifo file
+version=3.0.0
+bookname=Sample with resources
+wordcount=5
+synwordcount=2
+idxfilesize=70
+author=pangloss
+description=Typed fields without sametypesequence, as the sample dictionary of stardict-3.

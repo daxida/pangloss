@@ -11,6 +11,7 @@ use crate::{
     Context, Writer,
     formats::stardict::{StardictFormat, sts::SameTypeSequence},
     glossary::{Glossary, HtmlConverter},
+    scan::inside,
     utils::parent_dir,
 };
 
@@ -39,9 +40,14 @@ fn write_with_context(path: &Path, glossary: &Glossary, _: &Context) -> Result<(
 
     if !glossary.data_entries.is_empty() {
         let opath = parent_dir(path).join("res"); // stardict convention
-        fs::create_dir_all(&opath)?;
         for data_entry in &glossary.data_entries {
-            let fname = opath.join(data_entry.fname());
+            let Ok(fname) = inside(&opath, &data_entry.fname().to_string_lossy())
+                .inspect_err(|err| tracing::warn!("Skipping media: {err}"))
+            else {
+                continue;
+            };
+            // Also creates res/ and its subfolders
+            fs::create_dir_all(parent_dir(&fname))?;
             fs::write(&fname, data_entry.bytes())?;
         }
     }

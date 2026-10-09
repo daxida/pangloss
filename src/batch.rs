@@ -1,13 +1,10 @@
 //! Converting every dictionary under a folder.
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 
-use crate::{ReaderFormat, WriterFormat};
+use crate::{ReaderFormat, WriterFormat, utils::files_under};
 
 /// Every dictionary under `root`, sorted, with its format.
 ///
@@ -41,26 +38,4 @@ pub fn output_path(root: &Path, input: &Path, out_root: &Path, wformat: WriterFo
         named = root.file_name().unwrap_or_default().into();
     }
     out_root.join(named).with_extension(wformat.extension())
-}
-
-/// Every file under `dir`, sorted, skipping hidden ones.
-fn files_under(dir: &Path) -> Result<Vec<PathBuf>> {
-    let mut files = Vec::new();
-    let mut dirs = vec![dir.to_path_buf()];
-    while let Some(dir) = dirs.pop() {
-        for entry in fs::read_dir(&dir)? {
-            let entry = entry?;
-            if entry.file_name().to_string_lossy().starts_with('.') {
-                continue;
-            }
-            let path = entry.path();
-            if path.is_dir() {
-                dirs.push(path);
-            } else {
-                files.push(path);
-            }
-        }
-    }
-    files.sort();
-    Ok(files)
 }

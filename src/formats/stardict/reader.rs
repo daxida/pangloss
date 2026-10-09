@@ -6,7 +6,7 @@ use crate::{
     Context, DataEntry, Reader,
     formats::stardict::{StardictFormat, files::StardictFiles, sts::SameTypeSequence},
     glossary::{AltEntry, Entry, Glossary, GlossaryInfo},
-    scan::DictionaryFiles,
+    scan::{DictionaryFiles, Source},
 };
 
 impl Reader for StardictFormat {
@@ -40,11 +40,12 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
 
     let entries = read_entries(sts, &idx, &syn, &read(&files.dict)?);
 
-    let data_entries = files
+    let mut data_entries: Vec<_> = files
         .css
         .iter()
         .flat_map(|css| source.read(css).map(|bytes| DataEntry::new(css, bytes)))
         .collect();
+    data_entries.extend(read_res(&mut source, &files.ifo)?);
 
     Ok(Glossary {
         entries,
@@ -52,6 +53,20 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
         info,
         ..Default::default()
     })
+}
+
+/// The media in `res/` beside the .ifo, named relative to it, as koreader resolves them.
+/// Not in [`StardictFiles`], which only sees the files directly in a folder.
+fn read_res(source: &mut Source, ifo: &str) -> Result<Vec<DataEntry>> {
+    let res = match ifo.rsplit_once('/') {
+        Some((dir, _)) => format!("{dir}/res"),
+        None => "res".to_string(),
+    };
+    source
+        .names_under(&res)?
+        .into_iter()
+        .map(|name| Ok(DataEntry::new(&name[res.len() + 1..], source.read(&name)?)))
+        .collect()
 }
 
 fn read_entries(

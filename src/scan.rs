@@ -11,7 +11,7 @@ use anyhow::{Context, Result, bail};
 use sevenz_rust2::{ArchiveReader, Password};
 use zip::ZipArchive;
 
-use crate::utils::parent_dir;
+use crate::utils::{files_under, parent_dir};
 
 pub trait DictionaryFiles: Sized {
     /// The file the user points at: `*.<ext>`, or an exact name like "index.json".
@@ -132,6 +132,27 @@ impl Source {
         }
     }
 
+    /// The files under `dir` at any depth, sorted, named as in [`Self::names`].
+    pub fn names_under(&self, dir: &str) -> Result<Vec<String>> {
+        let prefix = format!("{dir}/");
+        let mut names = match self {
+            Self::Dir(root) if !root.join(dir).is_dir() => Vec::new(),
+            Self::Dir(root) => files_under(&root.join(dir))?
+                .iter()
+                .map(|path| {
+                    path.strip_prefix(root)
+                        .unwrap_or(path)
+                        .to_string_lossy()
+                        .replace('\\', "/")
+                })
+                .collect(),
+            Self::Zip(_) | Self::SevenZ { .. } => self.names()?,
+        };
+        names.retain(|name| name.starts_with(&prefix));
+        names.sort();
+        Ok(names)
+    }
+
     pub fn open(&mut self, name: &str) -> Result<Box<dyn Read>> {
         match self {
             Self::Dir(dir) => Ok(Box::new(fs::File::open(inside(dir, name)?)?)),
@@ -173,10 +194,10 @@ impl Source {
 }
 
 /// `dir/name`, refusing names that would leave `dir`, since they may come from the dictionary.
-fn inside(dir: &Path, name: &str) -> Result<PathBuf> {
+pub fn inside(dir: &Path, name: &str) -> Result<PathBuf> {
     let plain = |part| matches!(part, Component::Normal(_));
     if !Path::new(name).components().all(plain) {
-        bail!("Refusing to read {name} outside of {}", dir.display());
+        bail!("{name} is outside of {}", dir.display());
     }
     Ok(dir.join(name))
 }
