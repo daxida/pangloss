@@ -17,6 +17,8 @@
 //! [pyglossary]: https://github.com/ilius/pyglossary/tree/master/pyglossary/plugins/dsl
 
 pub(crate) mod files;
+mod headword;
+mod markup;
 mod reader;
 
 pub struct DslFormat;

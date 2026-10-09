@@ -1,3 +1,4 @@
+mod dsl;
 mod json;
 mod matrix;
 mod mdict;

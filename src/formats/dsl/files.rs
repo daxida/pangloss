@@ -5,7 +5,6 @@ use crate::scan::DictionaryFiles;
 const ABBREVIATIONS: &str = "_abrv";
 
 /// Every file is named after the .dsl, as goldendict-ng expects.
-#[allow(dead_code, reason = "the reader does not read them yet")]
 pub struct DslFiles {
     /// `foo.dsl`, or `foo.dsl.dz` when dictzipped.
     pub dsl: String,
@@ -13,6 +12,14 @@ pub struct DslFiles {
     pub ann: Option<String>,
     /// `foo.dsl.files.zip`: the media that cards show.
     pub resources: Option<String>,
+}
+
+impl DslFiles {
+    /// `foo` for `dir/foo.dsl`.
+    pub fn name(&self) -> &str {
+        let stem = stem(&self.dsl).unwrap_or(&self.dsl);
+        stem.rsplit('/').next().unwrap_or(stem)
+    }
 }
 
 impl DictionaryFiles for DslFiles {

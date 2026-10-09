@@ -14,7 +14,7 @@ The name is a wordplay on pandoc and pyglossary, and the famous character of Vol
 
 It only targets a subset of the functionality that is relevant to [Jitendex](https://github.com/Jitendex/Jitendex) and [wiktionary-to-yomitan](https://github.com/yomidevs/wiktionary-to-yomitan). The objective is mainly to do a better job in that particular subset, and (maybe, if I ever learn how to add some bindings) to allow some glossary creation API in dotnet.
 
-At the moment it supports Yomitan, Stardict and Mdict.
+At the moment it supports Yomitan, Stardict and Mdict, and reads ABBYY Lingvo DSL.
 
 ## Usage
 
@@ -47,6 +47,7 @@ Every non-trivial format targets a concrete reader, f.e. [goldendict-ng] in the 
 | Yomitan | [yomitan] |
 | Stardict | [koreader] |
 | Mdict | [goldendict-ng] |
+| DSL (read only) | [goldendict-ng] |
 
 [yomitan]: https://github.com/yomidevs/yomitan
 [koreader]: https://github.com/koreader/koreader
