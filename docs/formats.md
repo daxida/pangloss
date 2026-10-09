@@ -19,6 +19,16 @@ Document features
 - [ts schemas](https://github.com/MarvNC/yomichan-dict-builder/tree/master/src/types/yomitan)
   - [term bank](https://github.com/MarvNC/yomichan-dict-builder/blob/master/src/types/yomitan/termbank.ts#L35)
 
+### DSL
+
+ABBYY never published a spec beyond the DSL Compiler chapter of the Lingvo help.
+
+- [dictionary structure](http://lingvo.helpmax.net/en/troubleshooting/dsl-compiler/dsl-dictionary-structure/): header, encodings, `#INCLUDE`
+- [card structure](http://lingvo.helpmax.net/en/troubleshooting/dsl-compiler/dsl-card-structure/): headwords, card bodies
+- [tags](http://lingvo.helpmax.net/en/troubleshooting/dsl-compiler/dsl-tags/)
+- [pyglossary reader](https://github.com/ilius/pyglossary/tree/master/pyglossary/plugins/dsl): what we follow, html included
+- [goldendict parser](https://github.com/xiaoyifang/goldendict-ng/blob/staged/src/dict/dsl_details.cc)
+
 ### Babylon
 
 Not a format we support, but one whose leftovers arrive inside the others.

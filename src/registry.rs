@@ -6,6 +6,7 @@ use clap::ValueEnum;
 use crate::{
     Context, Reader, Writer,
     formats::{
+        dsl::{DslFormat, files::DslFiles},
         html::HtmlFormat,
         json::JsonFormat,
         mdict::{MdictFormat, files::MdictFiles},
@@ -24,6 +25,7 @@ pub enum ReaderFormat {
     Stardict,
     Json,
     Yomitan,
+    Dsl,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -57,6 +59,7 @@ impl Reader for ReaderFormat {
             Self::Stardict => StardictFormat.read_with_context(path, ctx),
             Self::Json => JsonFormat.read_with_context(path, ctx),
             Self::Yomitan => YomitanFormat.read_with_context(path, ctx),
+            Self::Dsl => DslFormat.read_with_context(path, ctx),
         }
     }
 }
@@ -87,6 +90,7 @@ impl ReaderFormat {
             "ifo" => Some(Self::Stardict),
             "json" if YomitanFiles::is_main(name) => Some(Self::Yomitan),
             "json" => Some(Self::Json),
+            "dsl" | "dz" if DslFiles::is_main(name) => Some(Self::Dsl),
             _ => None,
         }
     }
@@ -100,6 +104,7 @@ impl ReaderFormat {
             (Self::Yomitan, holds(YomitanFiles::is_main)),
             (Self::Mdict, holds(MdictFiles::is_main)),
             (Self::Stardict, holds(StardictFiles::is_main)),
+            (Self::Dsl, holds(DslFiles::is_main)),
         ]
         .into_iter()
         .filter_map(|(format, held)| held.then_some(format))

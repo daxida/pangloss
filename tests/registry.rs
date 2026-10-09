@@ -49,10 +49,15 @@ fn reader_format_is_detected_from_the_path() {
         ("./dict.v2.ifo", Some(ReaderFormat::Stardict)),
         ("DICT.MDX", Some(ReaderFormat::Mdict)),
         ("Dict.Ifo", Some(ReaderFormat::Stardict)),
+        ("dict.dsl", Some(ReaderFormat::Dsl)),
+        ("dict.dsl.dz", Some(ReaderFormat::Dsl)),
         // Companions are not dictionaries on their own
         ("dict.mdd", None),
         ("dict.idx", None),
         ("dict.css", None),
+        ("dict_abrv.dsl", None),
+        ("dict.ann", None),
+        ("other.dz", None),
         // Html is write only
         ("out.hdir", None),
         ("dict", None),
