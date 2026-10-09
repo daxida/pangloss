@@ -236,6 +236,13 @@ fn run_batch(cli: &Cli) -> Result<()> {
     if !cli.input.is_dir() {
         bail!("--batch needs a folder, but got {}", cli.input.display());
     }
+    // Else every dictionary fails on its own, with "Not a directory"
+    if cli.output.exists() && !cli.output.is_dir() {
+        bail!(
+            "--batch writes into a folder, but {} is a file",
+            cli.output.display()
+        );
+    }
     let Some(wformat) = cli.wformat else {
         bail!("--batch needs --wformat=FORMAT");
     };
