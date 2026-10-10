@@ -14,7 +14,7 @@ use crate::{
     Context, DataEntry, Reader,
     formats::dsl::{DslFormat, files::DslFiles, headword, markup},
     glossary::{AltEntry, Definition, Entry, Glossary, GlossaryInfo},
-    scan::{DictionaryFiles, Source},
+    scan::{DictionaryFiles, Source, zip_file_names},
 };
 
 impl Reader for DslFormat {
@@ -279,11 +279,7 @@ fn read_resources(
         let bytes = source.read(resources)?;
         let mut archive = ZipArchive::new(Cursor::new(bytes))
             .with_context(|| format!("Failed to open {resources}"))?;
-        let mut names: Vec<String> = archive
-            .file_names()
-            .filter(|name| !name.ends_with('/'))
-            .map(String::from)
-            .collect();
+        let mut names = zip_file_names(&archive)?;
         names.sort();
         for name in names {
             let mut file = archive.by_name(&name)?;

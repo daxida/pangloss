@@ -3,7 +3,7 @@
 use std::{
     collections::HashMap,
     fs,
-    io::{BufReader, Cursor, Read},
+    io::{BufReader, Cursor, Read, Seek},
     path::{Component, Path, PathBuf},
 };
 
@@ -119,11 +119,7 @@ impl Source {
                 }
                 Ok(names)
             }
-            Self::Zip(archive) => Ok(archive
-                .file_names()
-                .filter(|name| !name.ends_with('/'))
-                .map(String::from)
-                .collect()),
+            Self::Zip(archive) => zip_file_names(archive),
             Self::SevenZ { reader, .. } => Ok(reader
                 .archive()
                 .files
@@ -193,6 +189,18 @@ impl Source {
             }
         }
     }
+}
+
+/// The names of every file (not folder) in a zip, in the archive's order.
+pub fn zip_file_names<R: Read + Seek>(archive: &ZipArchive<R>) -> Result<Vec<String>> {
+    let mut names = Vec::new();
+    for name in archive.file_names() {
+        let name = name?;
+        if !name.ends_with('/') {
+            names.push(name.into_owned());
+        }
+    }
+    Ok(names)
 }
 
 /// `dir/name`, refusing names that would leave `dir`, since they may come from the dictionary.

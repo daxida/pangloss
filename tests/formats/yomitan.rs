@@ -30,7 +30,7 @@ fn extract(path: &Path) -> ZipContents {
     let mut media = Vec::new();
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i).unwrap();
-        let name = entry.name().to_string();
+        let name = entry.name().unwrap().to_string();
         if name.ends_with(".json") {
             let mut content = String::new();
             entry.read_to_string(&mut content).unwrap();
