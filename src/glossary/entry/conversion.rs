@@ -171,29 +171,31 @@ fn element_to_node(el: ElementRef) -> Node {
         .map(|c| NodeData(IndexMap::from([("class".to_string(), c.to_string())])));
 
     // helper to remove duplication
-    let make = |tag: NTag| {
-        Node::Generic(Box::new(GenericNode {
-            tag,
-            content: Some(content.clone()),
-            title: None,
-            style: extract_styles(el.value()),
-            data: data.clone(),
-            lang: None,
-        }))
-    };
+    macro_rules! make {
+        ($tag:expr) => {
+            Node::Generic(Box::new(GenericNode {
+                tag: $tag,
+                content: Some(content),
+                title: None,
+                style: extract_styles(el.value()),
+                data,
+                lang: None,
+            }))
+        };
+    }
 
     #[allow(clippy::match_same_arms)]
     match el.value().name() {
         // unwrap artificial root
         "span" if el.value().attr("data-root").is_some() => content,
 
-        "span" => make(NTag::Span),
-        "div" => make(NTag::Div),
-        "ol" => make(NTag::Ol),
-        "ul" => make(NTag::Ul),
-        "li" => make(NTag::Li),
-        "details" => make(NTag::Details),
-        "summary" => make(NTag::Summary),
+        "span" => make!(NTag::Span),
+        "div" => make!(NTag::Div),
+        "ol" => make!(NTag::Ol),
+        "ul" => make!(NTag::Ul),
+        "li" => make!(NTag::Li),
+        "details" => make!(NTag::Details),
+        "summary" => make!(NTag::Summary),
 
         "br" => Node::LineBreak(Box::new(LineBreakNode {
             tag: LineBreakNodeTag::Br,
@@ -221,7 +223,7 @@ fn element_to_node(el: ElementRef) -> Node {
                 margin: Some("0.5em 0".to_string()),
                 ..Default::default()
             }),
-            data: data.clone(),
+            data,
             lang: None,
         })),
 
@@ -229,18 +231,18 @@ fn element_to_node(el: ElementRef) -> Node {
         // try to match to their closest relative.
 
         // normalize deprecated <font>
-        "font" => make(NTag::Span),
+        "font" => make!(NTag::Span),
 
         // bold and italic
         "b" | "strong" => Node::Generic(Box::new(GenericNode {
             tag: NTag::Span,
-            content: Some(content.clone()),
+            content: Some(content),
             title,
             style: Some(NodeStyle {
                 font_weight: Some(FontWeight::Bold),
                 ..extract_styles(el.value()).unwrap_or_default()
             }),
-            data: data.clone(),
+            data,
             lang: None,
         })),
         "i" | "em" => Node::Generic(Box::new(GenericNode {
@@ -269,23 +271,23 @@ fn element_to_node(el: ElementRef) -> Node {
         })),
 
         // paragraph
-        "p" => make(NTag::Div),
+        "p" => make!(NTag::Div),
         // https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/section
-        "section" => make(NTag::Div),
+        "section" => make!(NTag::Div),
         // https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dl
-        "dl" => make(NTag::Ul),
-        "dd" => make(NTag::Li),
+        "dl" => make!(NTag::Ul),
+        "dd" => make!(NTag::Li),
 
         // Compared to b/bold, this is a div and not a span
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => Node::Generic(Box::new(GenericNode {
             tag: NTag::Div,
-            content: Some(content.clone()),
+            content: Some(content),
             title,
             style: Some(NodeStyle {
                 font_weight: Some(FontWeight::Bold),
                 ..extract_styles(el.value()).unwrap_or_default()
             }),
-            data: data.clone(),
+            data,
             lang: None,
         })),
 
@@ -293,7 +295,7 @@ fn element_to_node(el: ElementRef) -> Node {
             Some(src) => Node::Image(Box::new(ImageNode {
                 tag: ImageNodeTag::Img,
                 path: src.to_string(),
-                data: data.clone(),
+                data,
                 width: value.attr("width").and_then(|w| w.parse().ok()),
                 height: value.attr("height").and_then(|h| h.parse().ok()),
                 title,
