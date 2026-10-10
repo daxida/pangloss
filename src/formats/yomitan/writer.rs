@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write, path::Path};
+use std::{borrow::Cow, fs::File, io::Write, path::Path};
 
 use anyhow::{Result, bail};
 use indexmap::IndexMap;
@@ -30,8 +30,14 @@ fn write_with_context(path: &Path, glossary: &Glossary, ctx: &Context) -> Result
 
     for e in &glossary.entries {
         match e.definition().to_yomitan(e.term()) {
-            YomitanDefinition::TermBankEntry(e) => term_entries.push(e),
-            YomitanDefinition::TermMetaBankEntry(e) => term_meta_entries.push(e),
+            Cow::Borrowed(YomitanDefinition::TermBankEntry(e)) => {
+                term_entries.push(Cow::Borrowed(e))
+            }
+            Cow::Owned(YomitanDefinition::TermBankEntry(e)) => term_entries.push(Cow::Owned(e)),
+            Cow::Borrowed(YomitanDefinition::TermMetaBankEntry(e)) => term_meta_entries.push(e),
+            Cow::Owned(YomitanDefinition::TermMetaBankEntry(_)) => {
+                unreachable!("to_yomitan builds only term bank entries")
+            }
         }
     }
 
@@ -39,16 +45,16 @@ fn write_with_context(path: &Path, glossary: &Glossary, ctx: &Context) -> Result
         for alt in entry.alts() {
             match alt.definition() {
                 Some(Definition::Yomitan(def)) => match def.as_ref() {
-                    YomitanDefinition::TermBankEntry(e) => term_entries.push(e.clone()),
+                    YomitanDefinition::TermBankEntry(e) => term_entries.push(Cow::Borrowed(e)),
                     YomitanDefinition::TermMetaBankEntry(_) => {
                         bail!("Term meta bank entry leaked to an alt")
                     }
                 },
                 Some(_) => bail!("Rich alt entry coming from unexpected format"),
-                None => term_entries.push(TermBankEntry::raw_inflection(
+                None => term_entries.push(Cow::Owned(TermBankEntry::raw_inflection(
                     entry.term().to_string(),
                     alt.term().to_string(),
-                )),
+                ))),
             }
         }
     }

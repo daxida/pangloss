@@ -1,5 +1,7 @@
 #![allow(clippy::match_same_arms)] // TODO: for now...
 
+use std::borrow::Cow;
+
 use crate::{
     formats::yomitan::{
         TermBankEntry,
@@ -101,18 +103,19 @@ impl Definition {
     }
 
     // We require access to the term to create a TermInformation
-    pub fn to_yomitan(&self, term: &str) -> YomitanDefinition {
+    pub fn to_yomitan(&self, term: &str) -> Cow<'_, YomitanDefinition> {
         debug_assert!(!term.is_empty());
         match self {
-            Self::Text(s) => {
-                YomitanDefinition::TermBankEntry(TermBankEntry::raw(term.to_string(), s.clone()))
-            }
-            Self::Html(s) => YomitanDefinition::TermBankEntry(TermBankEntry {
+            Self::Text(s) => Cow::Owned(YomitanDefinition::TermBankEntry(TermBankEntry::raw(
+                term.to_string(),
+                s.clone(),
+            ))),
+            Self::Html(s) => Cow::Owned(YomitanDefinition::TermBankEntry(TermBankEntry {
                 term: term.to_string(),
                 definitions: vec![conversion::html_to_structured_content(s)],
                 ..Default::default()
-            }),
-            Self::Yomitan(defs) => defs.as_ref().clone(),
+            })),
+            Self::Yomitan(defs) => Cow::Borrowed(defs),
         }
     }
 }
