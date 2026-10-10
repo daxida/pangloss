@@ -105,17 +105,20 @@ impl EntryTransform for PreventDuplicateTerms {
 pub struct TrimWhiteSpace;
 
 impl TrimWhiteSpace {
-    fn repl(s: &str) -> String {
-        s.trim().to_string()
+    /// Trims `s` in place, as most strings have nothing to trim: then nothing is copied.
+    fn repl(s: &mut String) {
+        let end = s.trim_end().len();
+        s.truncate(end);
+        let start = s.len() - s.trim_start().len();
+        s.drain(..start);
     }
 }
 
 impl EntryTransform for TrimWhiteSpace {
     fn apply(&self, entry: &mut Entry) {
-        let term = entry.term_mut();
-        *term = Self::repl(term);
+        Self::repl(entry.term_mut());
         match entry.definition_mut() {
-            Definition::Text(s) | Definition::Html(s) => *s = Self::repl(s),
+            Definition::Text(s) | Definition::Html(s) => Self::repl(s),
             Definition::Yomitan(_) => (),
         }
     }
@@ -124,17 +127,19 @@ impl EntryTransform for TrimWhiteSpace {
 pub struct RemoveNewlines;
 
 impl RemoveNewlines {
-    fn repl(s: &str) -> String {
-        s.replace(['\n', '\r'], "")
+    /// Drops the newlines of `s` in place, touching it only if it has any.
+    fn repl(s: &mut String) {
+        if s.contains(['\n', '\r']) {
+            s.retain(|c| c != '\n' && c != '\r');
+        }
     }
 }
 
 impl EntryTransform for RemoveNewlines {
     fn apply(&self, entry: &mut Entry) {
-        let term = entry.term_mut();
-        *term = Self::repl(term);
+        Self::repl(entry.term_mut());
         match entry.definition_mut() {
-            Definition::Text(s) | Definition::Html(s) => *s = Self::repl(s),
+            Definition::Text(s) | Definition::Html(s) => Self::repl(s),
             Definition::Yomitan(_) => (),
         }
     }
@@ -152,7 +157,8 @@ impl ResolveMdictStyles {
         Self { style_sheet }
     }
 
-    fn repl(&self, s: &str) -> String {
+    /// `s` with its style references resolved, or `None` if it has none.
+    fn repl(&self, s: &str) -> Option<String> {
         let mut out = String::new();
         let mut pending_suffix = "";
         let mut last = 0;
@@ -170,19 +176,21 @@ impl ResolveMdictStyles {
             }
         }
         if last == 0 {
-            // No styles: return
-            return s.to_string();
+            return None;
         }
         out.push_str(&s[last..]);
         out.push_str(pending_suffix);
-        out
+        Some(out)
     }
 }
 
 impl EntryTransform for ResolveMdictStyles {
     fn apply(&self, entry: &mut Entry) {
         let definition = entry.definition_mut();
-        let replacement = self.repl(&definition.to_text());
-        *definition = Definition::Html(replacement);
+        let text = match definition {
+            Definition::Text(s) | Definition::Html(s) => std::mem::take(s),
+            Definition::Yomitan(_) => definition.to_text(),
+        };
+        *definition = Definition::Html(self.repl(&text).unwrap_or(text));
     }
 }
