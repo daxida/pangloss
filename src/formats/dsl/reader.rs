@@ -74,14 +74,10 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
 // TODO: the spec allows ANSI too, naming its code page in #SOURCE_CODE_PAGE.
 fn decode(bytes: Vec<u8>) -> Result<String> {
     let utf16 = |bytes: &[u8], from_bytes: fn([u8; 2]) -> u16| {
-        let units: Vec<u16> = bytes
-            .as_chunks()
-            .0
-            .iter()
-            .copied()
-            .map(from_bytes)
-            .collect();
-        String::from_utf16_lossy(&units)
+        let units = bytes.as_chunks().0.iter().copied().map(from_bytes);
+        char::decode_utf16(units)
+            .map(|c| c.unwrap_or(char::REPLACEMENT_CHARACTER))
+            .collect::<String>()
     };
     if let Some(rest) = bytes.strip_prefix(b"\xFF\xFE") {
         Ok(utf16(rest, u16::from_le_bytes))
