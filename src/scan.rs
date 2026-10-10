@@ -3,7 +3,7 @@
 use std::{
     collections::HashMap,
     fs,
-    io::{Cursor, Read},
+    io::{BufReader, Cursor, Read},
     path::{Component, Path, PathBuf},
 };
 
@@ -65,13 +65,13 @@ pub enum Source {
     /// everything before it, so reading entries one by one decodes the start over and over.
     SevenZ {
         // Boxed, it is much bigger than the other variants
-        reader: Box<ArchiveReader<fs::File>>,
+        reader: Box<ArchiveReader<BufReader<fs::File>>>,
         entries: Option<HashMap<String, Vec<u8>>>,
     },
 }
 
 /// Every file in the archive, decoded in one pass.
-fn decode_all(reader: &mut ArchiveReader<fs::File>) -> Result<HashMap<String, Vec<u8>>> {
+fn decode_all(reader: &mut ArchiveReader<BufReader<fs::File>>) -> Result<HashMap<String, Vec<u8>>> {
     let mut entries = HashMap::new();
     reader.for_each_entries(|entry, data| {
         if !entry.is_directory() {
@@ -94,7 +94,9 @@ impl Source {
         } else if has_extension(path, "zip") {
             Ok(Some(Self::Zip(ZipArchive::new(fs::File::open(path)?)?)))
         } else if has_extension(path, "7z") {
-            let reader = Box::new(ArchiveReader::open(path, Password::empty())?);
+            // Buffered: the PPMd decoder pulls its input one byte at a time
+            let file = BufReader::new(fs::File::open(path)?);
+            let reader = Box::new(ArchiveReader::new(file, Password::empty())?);
             Ok(Some(Self::SevenZ {
                 reader,
                 entries: None,
