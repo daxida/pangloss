@@ -45,7 +45,7 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
     for term_meta_bank_entry in term_meta_bank {
         entries.push(Entry::new(
             term_meta_bank_entry.term().clone(),
-            Definition::Yomitan(YomitanDefinition::TermMetaBankEntry(term_meta_bank_entry)),
+            Definition::from(YomitanDefinition::TermMetaBankEntry(term_meta_bank_entry)),
         ));
     }
 
@@ -56,7 +56,9 @@ fn read_with_context(path: &Path, _: &Context) -> Result<Glossary> {
 
     let mut media = Vec::from_iter(files.styles.as_deref());
     for entry in &entries {
-        if let Definition::Yomitan(YomitanDefinition::TermBankEntry(entry)) = entry.definition() {
+        if let Definition::Yomitan(def) = entry.definition()
+            && let YomitanDefinition::TermBankEntry(entry) = def.as_ref()
+        {
             for definition in &entry.definitions {
                 definition.image_paths(&mut media);
             }
@@ -124,7 +126,7 @@ fn read_term_bank(
         } else {
             entries.push(Entry::new(
                 term_bank_entry.term.clone(),
-                Definition::Yomitan(YomitanDefinition::TermBankEntry(term_bank_entry)),
+                Definition::from(YomitanDefinition::TermBankEntry(term_bank_entry)),
             ));
         }
     }
@@ -153,7 +155,7 @@ fn attach_inflections(entries: &mut Vec<Entry>, inflections: Inflections) {
     let mut orphans = Vec::new();
     for (target, (_, term_bank_entry)) in targets.into_iter().zip(inflections) {
         let term = term_bank_entry.term.clone();
-        let definition = Definition::Yomitan(YomitanDefinition::TermBankEntry(term_bank_entry));
+        let definition = Definition::from(YomitanDefinition::TermBankEntry(term_bank_entry));
         match target {
             Some(index) => entries[index]
                 .alts_mut()

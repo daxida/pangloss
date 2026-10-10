@@ -38,12 +38,12 @@ fn write_with_context(path: &Path, glossary: &Glossary, ctx: &Context) -> Result
     for entry in &glossary.entries {
         for alt in entry.alts() {
             match alt.definition() {
-                Some(Definition::Yomitan(YomitanDefinition::TermBankEntry(e))) => {
-                    term_entries.push(e.clone());
-                }
-                Some(Definition::Yomitan(YomitanDefinition::TermMetaBankEntry(_))) => {
-                    bail!("Term meta bank entry leaked to an alt")
-                }
+                Some(Definition::Yomitan(def)) => match def.as_ref() {
+                    YomitanDefinition::TermBankEntry(e) => term_entries.push(e.clone()),
+                    YomitanDefinition::TermMetaBankEntry(_) => {
+                        bail!("Term meta bank entry leaked to an alt")
+                    }
+                },
                 Some(_) => bail!("Rich alt entry coming from unexpected format"),
                 None => term_entries.push(TermBankEntry::raw_inflection(
                     entry.term().to_string(),

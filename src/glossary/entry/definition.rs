@@ -21,9 +21,16 @@ pub enum Definition {
     // we want html > text via tag removal, and sometimes html > text via identity
     // (just print the html) for debugging purposes etc.
     // At the moment Text *is* the "Raw" variant.
-    Text(String),               // m (the default when we don't know)
-    Html(String),               // h
-    Yomitan(YomitanDefinition), // TODO: use box here: size too big
+    Text(String), // m (the default when we don't know)
+    Html(String), // h
+    // Boxed, as it is far bigger than the other variants.
+    Yomitan(Box<YomitanDefinition>),
+}
+
+impl From<YomitanDefinition> for Definition {
+    fn from(def: YomitanDefinition) -> Self {
+        Self::Yomitan(Box::new(def))
+    }
 }
 
 // TODO: better than cow would be to pass by value, which makes sense since they are
@@ -46,7 +53,7 @@ impl Definition {
             // Intentionally lossy. We don't want html in a yomitan definition.
             // Self::Html(s) => strip_html(s),
             Self::Html(s) => s.clone(),
-            Self::Yomitan(def) => match def {
+            Self::Yomitan(def) => match def.as_ref() {
                 YomitanDefinition::TermBankEntry(term_bank_entry) => term_bank_entry
                     .definitions
                     .iter()
@@ -63,7 +70,7 @@ impl Definition {
     pub fn write_html(&self, tag_bank: Option<&[TagBankEntry]>, out: &mut String) {
         match self {
             Self::Text(s) | Self::Html(s) => out.push_str(s),
-            Self::Yomitan(def) => match def {
+            Self::Yomitan(def) => match def.as_ref() {
                 YomitanDefinition::TermBankEntry(term_bank_entry) => {
                     term_bank_entry.write_html(tag_bank.unwrap_or_default(), out);
                 }
@@ -80,7 +87,7 @@ impl Definition {
         match self {
             Self::Text(s) => s.clone(),
             Self::Html(s) => s.clone(),
-            Self::Yomitan(def) => match def {
+            Self::Yomitan(def) => match def.as_ref() {
                 YomitanDefinition::TermBankEntry(term_bank_entry) => {
                     // Here we can get rid of the option since we know we are
                     // dealing with Yomitan.
@@ -105,7 +112,7 @@ impl Definition {
                 definitions: vec![conversion::html_to_structured_content(s)],
                 ..Default::default()
             }),
-            Self::Yomitan(defs) => defs.clone(),
+            Self::Yomitan(defs) => defs.as_ref().clone(),
         }
     }
 }
