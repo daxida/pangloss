@@ -1,4 +1,9 @@
-use std::{borrow::Cow, fs::File, io::Write, path::Path};
+use std::{
+    borrow::Cow,
+    fs::File,
+    io::{BufWriter, Seek, Write},
+    path::Path,
+};
 
 use anyhow::{Result, bail};
 use indexmap::IndexMap;
@@ -19,7 +24,7 @@ impl Writer for YomitanFormat {
 
 fn write_with_context(path: &Path, glossary: &Glossary, ctx: &Context) -> Result<()> {
     let chunk_size = 1000;
-    let file = File::create(path)?;
+    let file = BufWriter::new(File::create(path)?);
     let mut zip = ZipWriter::new(file);
     let options = SimpleFileOptions::default();
 
@@ -98,13 +103,13 @@ fn write_with_context(path: &Path, glossary: &Glossary, ctx: &Context) -> Result
         zip.write_all(data_entry.bytes())?;
     }
 
-    zip.finish()?;
+    zip.finish()?.flush()?;
     Ok(())
 }
 
 // https://github.com/yomidevs/yomitan/blob/master/ext/data/schemas/dictionary-index-schema.json
 fn write_index(
-    zip: &mut ZipWriter<File>,
+    zip: &mut ZipWriter<impl Write + Seek>,
     options: &SimpleFileOptions,
     glossary: &Glossary,
 ) -> Result<()> {
