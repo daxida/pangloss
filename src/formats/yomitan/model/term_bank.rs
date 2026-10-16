@@ -253,6 +253,24 @@ impl GroupNodeTag {
     }
 }
 
+impl TryFrom<&str> for GroupNodeTag {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "ruby" => Ok(Self::Ruby),
+            "rt" => Ok(Self::Rt),
+            "rp" => Ok(Self::Rp),
+            "table" => Ok(Self::Table),
+            "thead" => Ok(Self::Thead),
+            "tbody" => Ok(Self::Tbody),
+            "tfoot" => Ok(Self::Tfoot),
+            "tr" => Ok(Self::Tr),
+            _ => Err("unsupported group node tag"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TableNode {
@@ -282,6 +300,18 @@ impl TableNodeTag {
         match self {
             Self::Td => "td",
             Self::Th => "th",
+        }
+    }
+}
+
+impl TryFrom<&str> for TableNodeTag {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "td" => Ok(Self::Td),
+            "th" => Ok(Self::Th),
+            _ => Err("unsupported table node tag"),
         }
     }
 }

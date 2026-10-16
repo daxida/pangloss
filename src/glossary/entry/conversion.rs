@@ -197,6 +197,21 @@ fn element_to_node(el: ElementRef) -> Node {
         "details" => make!(NTag::Details),
         "summary" => make!(NTag::Summary),
 
+        name if let Ok(tag) = GroupNodeTag::try_from(name) => Node::Group(Box::new(GroupNode {
+            tag,
+            content: Some(content),
+            data,
+            lang: None,
+        })),
+        name if let Ok(tag) = TableNodeTag::try_from(name) => Node::Table(Box::new(TableNode {
+            tag,
+            content: Some(content),
+            data,
+            lang: None,
+            col_span: value.attr("colspan").and_then(|n| n.parse().ok()),
+            row_span: value.attr("rowspan").and_then(|n| n.parse().ok()),
+        })),
+
         "br" => Node::LineBreak(Box::new(LineBreakNode {
             tag: LineBreakNodeTag::Br,
             content: None,
@@ -476,6 +491,20 @@ mod tests {
         ] {
             assert_eq!(tag_of(html), NTag::Div, "{html} should map to a div");
         }
+    }
+
+    // https://github.com/daxida/pangloss/issues/5
+    #[test]
+    fn tables_keep_their_cells() {
+        let node = html_to_node(r#"<table><tr><td>a</td><td colspan="2">b</td></tr></table>"#);
+        let json = serde_json::to_value(&node).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({"tag": "table", "content": {"tag": "tbody", "content": {"tag": "tr", "content": [
+                {"tag": "td", "content": "a"},
+                {"tag": "td", "content": "b", "colSpan": 2},
+            ]}}})
+        );
     }
 
     #[test]
